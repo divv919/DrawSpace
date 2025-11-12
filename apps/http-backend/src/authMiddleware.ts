@@ -6,8 +6,8 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   console.log("Headers are : " + req.headers["authorization"]);
 
   const decoded = jwt.verify(
-    req.headers["authorization"] || "",
-    JWT_SECRET || "Fallback_Secret"
+    req.headers["authorization"]?.split(" ")[1] || "",
+    JWT_SECRET
   );
   console.log("Is decoded : ", !!decoded, " Decode value : ", decoded);
 
