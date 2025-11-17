@@ -18,7 +18,7 @@ interface User {
 
 const ShapeSchema = z.enum([
   "ellipse",
-  "square",
+  "rectangle",
   "pencil",
   "line",
   "arrow",
@@ -78,21 +78,20 @@ wss.on("connection", (ws, request) => {
     const [key, value] = cookie.split("=");
     cookieMap.set(key ?? "", value ?? "");
   });
+  const decodedToken = decodeToken(cookieMap.get("roomToken") ?? null);
 
-  const decodedToken = decodeToken(cookieMap.get("authToken") ?? null);
-
-  console.log(
-    "cookie token : ",
-    cookieMap.get("authToken"),
-    " decodedToken : ",
-    decodedToken
-  );
+  // console.log(
+  //   "cookie token : ",
+  //   cookieMap.get("roomToken"),
+  //   " decodedToken : ",
+  //   decodedToken
+  // );
   if (!decodedToken) {
     console.log("No token found");
     ws.close();
     return;
   }
-  const { userId, roomId, access } = (decodedToken as JwtPayload).userId;
+  const { userId, roomId, access } = decodedToken as JwtPayload;
   if (!userId || !roomId || !access) {
     console.log("No userId, roomId or access found");
     ws.close();
@@ -103,9 +102,11 @@ wss.on("connection", (ws, request) => {
   usersBySocket.set(socketId, { userId, ws, socketId, roomId, access });
 
   ws.on("message", async (msg: Buffer) => {
+    console.log("message received : ", msg.toString());
     const toParseMessage = msg.toString();
     const message = JSON.parse(toParseMessage);
 
+    console.log("message : ", message);
     const { type, ...rest } = message;
     const validateType = ShapeSchema.parse(type);
     if (!validateType) {
@@ -113,7 +114,7 @@ wss.on("connection", (ws, request) => {
       return;
     }
     const validatedMessage = MessageSchema.parse({
-      type: validateType,
+      type,
       ...rest,
       userId,
       roomId,

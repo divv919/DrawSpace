@@ -26,12 +26,17 @@ export default function Signup() {
       console.log(error);
     },
   });
-  const handleSignup = () => {
+  const handleSignup = async () => {
+    console.log("signup entered");
     if (mutation.isPending) {
+      console.log("is pending");
       return;
     }
+    console.log("about to mutate");
+
     const { email, username, password } = formData;
     mutation.mutate({ email, username, password });
+    console.log("mutation done");
   };
   return (
     <div>

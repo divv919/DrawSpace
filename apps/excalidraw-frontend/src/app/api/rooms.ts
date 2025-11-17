@@ -1,5 +1,10 @@
 import { BACKEND_BASE_URL } from "@/config/variables";
-import { CreateRoomRequest, CreateRoomResponse, Room } from "@/types/rooms";
+import {
+  CreateRoomRequest,
+  CreateRoomResponse,
+  GetRoomsResponse,
+  Room,
+} from "@/types/rooms";
 
 export const fetchJSON = async <T>(
   url: string,
@@ -18,17 +23,19 @@ export const fetchJSON = async <T>(
   return response.json() as Promise<T>;
 };
 
-export const getRooms = async (): Promise<Room[]> => {
-  return fetchJSON<Room[]>("/api/rooms", {
+export const getRooms = async (): Promise<GetRoomsResponse> => {
+  return fetchJSON<GetRoomsResponse>("/getRooms", {
     method: "GET",
+    credentials: "include",
   });
 };
 
 export const createRoom = async (
   room: CreateRoomRequest
 ): Promise<CreateRoomResponse> => {
-  return fetchJSON<CreateRoomResponse>("/api/rooms", {
+  return fetchJSON<CreateRoomResponse>("/createRoom", {
     method: "POST",
+    credentials: "include",
     body: JSON.stringify(room),
   });
 };

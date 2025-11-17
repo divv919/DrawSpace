@@ -1,8 +1,10 @@
 "use client";
-import { BACKEND_BASE_URL } from "@/config/variables";
+// import { BACKEND_BASE_URL } from "@/config/variables";
+// import { BACKEND_BASE_URL } from "@/config/variables";
 import { SigninResponse, SignupResponse, User } from "@/types/auth";
 import { createContext, useEffect, useState, useContext } from "react";
 
+const BACKEND_BASE_URL = "http://localhost:3002";
 export const AuthContext = createContext<{
   signup: ({
     email,
@@ -39,16 +41,19 @@ export const AuthContext = createContext<{
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  useEffect(() => {
-    if (!localStorage.getItem("user") && !cookieStore.get("authToken")) {
-      return;
-    }
 
-    const user = localStorage.getItem("user");
-    if (user) {
-      populateUser(JSON.parse(user));
+  const populateUser = async (user: User) => {
+    localStorage.setItem("user", JSON.stringify(user));
+    setUser(user);
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      populateUser(JSON.parse(storedUser));
     }
   }, []);
+
   const signup = async ({
     email,
     password,
@@ -58,8 +63,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     password: string;
     username: string;
   }) => {
+    console.log("signup running");
     const response = await fetch(`${BACKEND_BASE_URL}/signup`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
       body: JSON.stringify({ email, password, username }),
     });
     if (!response.ok) {
@@ -78,6 +88,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }) => {
     const response = await fetch(`${BACKEND_BASE_URL}/signin`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     if (!response.ok) {
@@ -85,13 +99,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     return response.json();
   };
-  const populateUser = async (user: User) => {
-    localStorage.setItem("user", JSON.stringify(user));
-    setUser(user);
-  };
+
   const logout = () => {
-    cookieStore.delete("authToken");
+    // Remove cookie by setting it to expire
+    document.cookie =
+      "authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  // Helper to check if auth token exists in cookies
+  const getAuthToken = () => {
+    if (typeof document === "undefined") return null;
+    const cookies = document.cookie.split(";");
+    const authCookie = cookies.find((cookie) =>
+      cookie.trim().startsWith("authToken=")
+    );
+    return authCookie ? authCookie.split("=")[1] : null;
   };
 
   return (
@@ -100,7 +124,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signup,
         signin,
         populateUser,
-        isAuthenticated: !!cookieStore.get("authToken") && !!user,
+        isAuthenticated: !!getAuthToken() && !!user,
         user,
         logout,
       }}

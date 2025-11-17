@@ -1,73 +1,80 @@
+"use client";
+
+import createCanvas from "@/app/lib/draw";
+import { Content } from "@/types/canvas";
 import { useState, useRef, useEffect } from "react";
 
-type Shape = {
-  type: "rect" | "circle";
-  height: number;
-  width: number;
-  clientX: number;
-  clientY: number;
-};
 const CanvasComponent = ({
-  existingShapesState,
+  existingShapes,
   socket,
-  setExistingShapesState,
+  setExistingShapes,
 }: {
-  existingShapesState: string[];
-  setExistingShapesState: React.Dispatch<React.SetStateAction<string[]>>;
+  existingShapes: Content[];
+  setExistingShapes: React.Dispatch<React.SetStateAction<Content[]>>;
   socket: WebSocket;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const [canvasContext, setCanvasContext] =
-    useState<CanvasRenderingContext2D | null>(null);
+  const [canvas, setCanvas] = useState<ReturnType<typeof createCanvas> | null>(
+    null
+  );
+  const [currentColor, setCurrentColor] =
+    useState<CanvasRenderingContext2D["strokeStyle"]>("white");
+  const [currentShape, setCurrentShape] =
+    useState<Content["type"]>("rectangle");
   const [startXY, setStartXY] = useState({ clientX: 0, clientY: 0 });
   const [clicked, setClicked] = useState(false);
 
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
-      setCanvasContext(canvas?.getContext("2d"));
+      setCanvas(createCanvas(canvas));
     }
   }, [canvasRef.current]);
 
   useEffect(() => {
-    if (!canvasRef.current || !canvasContext) {
+    if (!canvas) {
       return;
     }
-    canvasContext?.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height
-    );
-    existingShapesState.map((shapeAsString: string) => {
-      const { clientX, clientY, height, width } = JSON.parse(shapeAsString);
-      canvasContext.strokeStyle = "white";
+    canvas.clearCanvas();
+    existingShapes.map((shape: Content) => {
+      const { clientX, clientY, height, width } = shape;
 
-      canvasContext.strokeRect(clientX, clientY, width, height);
+      canvas.drawRect(
+        clientX ?? 0,
+        clientY ?? 0,
+        width ?? 0,
+        height ?? 0,
+        currentColor
+      );
     });
-  }, [existingShapesState, canvasContext]);
+  }, [existingShapes, canvas]);
 
   const handleMove = (e: React.MouseEvent) => {
     // console.log("x moved : ", e.clientX, " y moved : ", e.clientY);
-    if (!canvasRef.current || !canvasContext || !clicked) {
+    if (!canvas || !clicked) {
       return;
     }
-    canvasContext?.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height
-    );
-    existingShapesState.map((shapeAsString: string) => {
-      const { clientX, clientY, height, width } = JSON.parse(shapeAsString);
-      canvasContext.strokeRect(clientX, clientY, width, height);
+    canvas.clearCanvas();
+    existingShapes.map((shapeAsString: Content) => {
+      const { clientX, clientY, height, width } = shapeAsString;
+      canvas.drawRect(
+        clientX ?? 0,
+        clientY ?? 0,
+        width ?? 0,
+        height ?? 0,
+        currentColor
+      );
     });
     const height = e.clientY - startXY.clientY;
     const width = e.clientX - startXY.clientX;
 
-    canvasContext.strokeStyle = "white";
-    canvasContext.strokeRect(startXY.clientX, startXY.clientY, width, height);
+    canvas.drawRect(
+      startXY.clientX,
+      startXY.clientY,
+      width,
+      height,
+      currentColor
+    );
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -75,27 +82,23 @@ const CanvasComponent = ({
     const { clientX, clientY } = e;
     const height = clientY - startXY.clientY;
     const width = clientX - startXY.clientX;
-    setExistingShapesState((prev) => [
+    setExistingShapes((prev) => [
       ...prev,
-      JSON.stringify({
-        type: "rect",
+      {
+        type: currentShape,
         height,
         width,
         clientX: startXY.clientX,
         clientY: startXY.clientY,
-      }),
+      },
     ]);
     socket.send(
       JSON.stringify({
-        type: "chat",
-        roomId: 1,
-        message: JSON.stringify({
-          type: "rect",
-          height,
-          width,
-          clientX: startXY.clientX,
-          clientY: startXY.clientY,
-        }),
+        type: currentShape,
+        height,
+        width,
+        clientX: startXY.clientX,
+        clientY: startXY.clientY,
       })
     );
   };

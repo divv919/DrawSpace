@@ -29,7 +29,6 @@ model Room {
   slug         String    @unique
   createdAt   DateTime  @default(now()) @map("created_at")
   content      Content[]
-  inviteLink  String    @unique @map("invite_link")
   isProtected Boolean   @default(false) @map("is_protected")
   password     String?
   adminId     String    @map("admin_id") // Removed @unique - allows users to admin multiple rooms
@@ -58,7 +57,7 @@ model Access {
 
 enum Shape {
   ellipse
-  square
+  rectangle
   pencil
   line
   arrow

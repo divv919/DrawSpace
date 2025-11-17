@@ -1,1 +1,1 @@
-{"root":["./src/authmiddleware.ts","./src/index.ts","./src/lib/util.ts","./types/override.d.ts"],"version":"5.8.2"}
+{"root":["./src/authmiddleware.ts","./src/index.ts","./src/lib/db.helpers.ts","./src/lib/util.ts","./types/override.d.ts"],"version":"5.8.2"}

@@ -2,42 +2,54 @@
 
 import { useEffect, useRef, useState } from "react";
 import CanvasComponent from "./CanvasComponent";
-import { TOKEN, WEBSOCKET_URL } from "@/config/variables";
+import { WEBSOCKET_URL } from "@/config/variables";
+import { Content } from "@/types/canvas";
+import { fetchJSON } from "@/app/api/rooms";
 
-function CanvasComponentForWS({
-  existingShapes,
-}: {
-  existingShapes: string[];
-}) {
+function CanvasComponentForWS({ slug }: { slug: string }) {
   const [socketConnection, setSocketConnection] = useState<WebSocket | null>(
     null
   );
-  const [existingShapesState, setExistingShapesState] =
-    useState(existingShapes);
-  useEffect(() => {
-    const socket = new WebSocket(`${WEBSOCKET_URL}?token=${TOKEN}`);
-    socket.onopen = () => {
-      setSocketConnection(socket);
-      socket.send(JSON.stringify({ type: "join_room", roomId: 1 }));
-    };
-    socket.onmessage = (e) => {
-      const parsed = JSON.parse(e.data);
-      setExistingShapesState((prev) => [...prev, parsed.message]);
-    };
-  }, [existingShapes]);
+  const [existingShapes, setExistingShapes] = useState<Content[]>([]);
 
   useEffect(() => {
-    console.log(" state array of existing shapes  : ", existingShapesState);
-  }, [existingShapesState]);
+    console.log("slug : ", slug);
+    async function getPreviousMessages() {
+      const response = await fetchJSON<{
+        messages: Content[];
+        success: boolean;
+      }>(`/contents/${slug}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (response.success) {
+        setExistingShapes(response.messages);
+      } else {
+        console.log("Error getting previous messages : ", response);
+      }
+    }
+    getPreviousMessages();
+  }, [slug]);
+
+  useEffect(() => {
+    const socket = new WebSocket(`${WEBSOCKET_URL}`);
+    socket.onopen = () => {
+      setSocketConnection(socket);
+    };
+    socket.onmessage = (e: MessageEvent) => {
+      const parsed = JSON.parse(e.data) as { message: Content };
+      setExistingShapes((prev) => [...prev, parsed.message]);
+    };
+  }, [existingShapes]);
 
   if (!socketConnection) {
     return <div>Connecting to ws</div>;
   }
   return (
     <CanvasComponent
-      existingShapesState={existingShapesState}
+      existingShapes={existingShapes}
       socket={socketConnection}
-      setExistingShapesState={setExistingShapesState}
+      setExistingShapes={setExistingShapes}
     />
   );
 }
