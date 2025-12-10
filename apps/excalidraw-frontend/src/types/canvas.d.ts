@@ -5,7 +5,9 @@ export type Shape =
   | "line"
   | "arrow"
   | "text"
-  | "hand";
+  | "hand"
+  | "select"
+  | "erasor";
 
 export type Content = {
   type: Shape;

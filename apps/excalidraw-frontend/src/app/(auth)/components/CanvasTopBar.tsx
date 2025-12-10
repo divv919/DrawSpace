@@ -2,8 +2,10 @@ import { cn } from "@/app/lib/util";
 import type { Shape } from "@/types/canvas";
 import {
   Circle,
+  Eraser,
   Hand,
   Minus,
+  MousePointer2,
   MoveUpRight,
   Pencil,
   Square,
@@ -18,6 +20,8 @@ const shapeToIcon: Record<Shape, React.ReactElement> = {
   arrow: <MoveUpRight size={16} />,
   hand: <Hand size={16} />,
   text: <Type size={16} />,
+  select: <MousePointer2 size={16} />,
+  erasor: <Eraser size={16} />,
 };
 
 export default function CanvasTopBar({
