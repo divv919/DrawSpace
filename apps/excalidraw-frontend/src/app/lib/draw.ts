@@ -1,5 +1,5 @@
 import { Content, Shape } from "@/types/canvas";
-
+import type { Camera } from "./camera";
 export class Canvas {
   private ctx: CanvasRenderingContext2D;
 
@@ -264,13 +264,10 @@ export class Canvas {
     endX: 0,
     endY: 0,
   };
-  drawSelectedRectangle(
-    shape: Content,
-    camera: React.RefObject<{ x: number; y: number; scale: number }>
-  ) {
+  drawSelectedRectangle(shape: Content, camera: Camera) {
     const ctx = this.ctx;
 
-    const scale = camera.current.scale;
+    const scale = camera.scale;
 
     let minX = Math.min(shape.startX!, shape.endX!);
     let maxX = Math.max(shape.startX!, shape.endX!);
@@ -334,11 +331,12 @@ export class Canvas {
   }
 
   redraw(
-    camera: React.RefObject<{ x: number; y: number; scale: number }>,
+    camera: Camera,
     existingShapes: Content[],
-    selectedShapeIndex: number
+    selectedShapeIndex: number,
+    erasedShapesIndexes: number[]
   ) {
-    const { x, y, scale } = camera.current;
+    const { x, y, scale } = camera;
     const context = this.ctx;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context?.clearRect(0, 0, window.innerWidth, window.innerHeight);
@@ -351,6 +349,11 @@ export class Canvas {
         console.warn(`No renderer found for shape: ${shape}`);
         return;
       }
+      let updatedShape = shape;
+      this.ctx.save();
+      if (erasedShapesIndexes.includes(index)) {
+        this.ctx.globalAlpha = 0.5;
+      }
 
       renderer(shape);
       if (selectedShapeIndex === index) {
@@ -358,6 +361,7 @@ export class Canvas {
           selectedShape = shape;
         }
       }
+      this.ctx.restore();
     });
     if (selectedShape !== null) {
       this.drawSelectedRectangle(selectedShape, camera);
@@ -365,13 +369,13 @@ export class Canvas {
   }
 
   getHoveredElementIndex(
-    camera: React.RefObject<{ x: number; y: number; scale: number }>,
+    camera: Camera,
     existingShapes: Content[],
     currentXY: { x: number; y: number }
   ) {
     let hoveredElementIndex = -1;
-    const worldX = (currentXY.x - camera.current.x) / camera.current.scale;
-    const worldY = (currentXY.y - camera.current.y) / camera.current.scale;
+    const worldX = (currentXY.x - camera.x) / camera.scale;
+    const worldY = (currentXY.y - camera.y) / camera.scale;
 
     existingShapes.map((element: Content, index: number) => {
       let isHovering = false;
@@ -433,16 +437,12 @@ export class Canvas {
     return hoveredElementIndex;
   }
   getSelectedRectangleInfo(
-    camera: React.RefObject<{ x: number; y: number; scale: number }>,
+    camera: Camera,
     currentXY: { x: number; y: number }
   ) {
-    const currentX = (currentXY.x - camera.current.x) / camera.current.scale;
-    const currentY = (currentXY.y - camera.current.y) / camera.current.scale;
-    return this.mouseOnSelectedRectangle(
-      currentX,
-      currentY,
-      10 / camera.current.scale
-    );
+    const currentX = (currentXY.x - camera.x) / camera.scale;
+    const currentY = (currentXY.y - camera.y) / camera.scale;
+    return this.mouseOnSelectedRectangle(currentX, currentY, 10 / camera.scale);
   }
   mouseOnSelectedRectangle(
     currentX: number,

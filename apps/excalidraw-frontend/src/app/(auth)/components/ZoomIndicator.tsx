@@ -1,3 +1,4 @@
+import type { Camera } from "@/app/lib/camera";
 import { Minus, Plus } from "lucide-react";
 
 export default function ZoomIndicator({
@@ -7,12 +8,15 @@ export default function ZoomIndicator({
   zoomLevel,
   setZoomLevel,
 }: {
-  camera: React.RefObject<{ x: number; y: number; scale: number }>;
+  camera: Camera | null;
   MAX_ZOOM: number;
   MIN_ZOOM: number;
   zoomLevel: number;
   setZoomLevel: React.Dispatch<React.SetStateAction<number>>;
 }) {
+  if (!camera) {
+    return;
+  }
   return (
     <div className="flex gap-3 items-center overflow-hidden rounded-md absolute bottom-10 right-10 bg-neutral-800">
       <button
@@ -20,9 +24,9 @@ export default function ZoomIndicator({
         onClick={() => {
           const value = Math.min(
             MAX_ZOOM,
-            Math.max(MIN_ZOOM, camera.current.scale + 0.1)
+            Math.max(MIN_ZOOM, camera.scale + 0.1)
           );
-          camera.current.scale = value;
+          camera.scale = value;
           setZoomLevel(value);
         }}
       >
@@ -33,9 +37,9 @@ export default function ZoomIndicator({
         onClick={() => {
           const value = Math.min(
             MAX_ZOOM,
-            Math.max(MIN_ZOOM, camera.current.scale - 0.1)
+            Math.max(MIN_ZOOM, camera.scale - 0.1)
           );
-          camera.current.scale = value;
+          camera.scale = value;
           setZoomLevel(value);
         }}
         className="px-3 py-2 hover:bg-neutral-700 transition-all duration-200 cursor-pointer"
