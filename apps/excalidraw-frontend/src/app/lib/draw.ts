@@ -156,15 +156,87 @@ export class Canvas {
     context.fill(); // filled arrowhead
   }
 
+  drawCaret(
+    textArray: string[],
+    x: number,
+    y: number,
+    showCaret: boolean = false,
+    color: CanvasRenderingContext2D["fillStyle"] = "white",
+    caretPos: number = -1
+  ) {
+    if (!showCaret) {
+      return;
+    }
+    const context = this.ctx;
+    context.font = "48px serif";
+    let textBeforeCaret = "";
+    // console.log("text array is", textArray, showCaret);
+    if (caretPos === -1) {
+      textBeforeCaret = "";
+    } else if (caretPos >= 0 && caretPos < textArray.length) {
+      textBeforeCaret = textArray.slice(0, caretPos + 1).join("");
+    } else {
+      textBeforeCaret = "";
+    }
+    // console.log("text before caret", textBeforeCaret);
+    const metrics = context.measureText(textBeforeCaret);
+    const caretX = x + metrics.width;
+    const textHeight = 48;
+    const textBaseline = metrics.actualBoundingBoxAscent || 0.8 * textHeight;
+    const caretTop = y - textBaseline;
+    const caretBottom =
+      y + (metrics.actualBoundingBoxDescent || textHeight * 0.2);
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(caretX, caretTop);
+    context.lineTo(caretX, caretBottom);
+    context.stroke();
+  }
+
   drawText(
     text: string,
     x: number,
     y: number,
-    strokeStyle: CanvasRenderingContext2D["strokeStyle"] = "white"
+    fillStyle: CanvasRenderingContext2D["fillStyle"] = "white",
+    drawBox: boolean = false,
+    showCaret: boolean = false,
+    caretPos: number = -1
   ) {
     const context = this.ctx;
     context.font = "48px serif";
+    context.fillStyle = fillStyle;
+
+    // Measure text dimensions
+    const metrics = context.measureText(text);
+    const textWidth = metrics.width;
+    const textHeight = 48; // Font size
+    const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8; // Approximate baseline
+
+    // Draw bounding box if requested
+    if (drawBox) {
+      const padding = 10;
+      // y is the baseline, so we need to adjust for the box
+      const boxX = x - padding;
+      const boxY = y - textBaseline - padding;
+      const boxWidth = textWidth + padding * 2;
+      const boxHeight =
+        textBaseline +
+        (metrics.actualBoundingBoxDescent || textHeight * 0.2) +
+        padding * 2;
+
+      context.strokeStyle = "rgba(255, 255, 255, 0.3)";
+      context.lineWidth = 1;
+      context.strokeRect(boxX, boxY, boxWidth, boxHeight);
+    }
+
     context.fillText(text, x, y);
+
+    // Return text dimensions for use elsewhere
+    return {
+      width: textWidth,
+      height: textHeight,
+    };
   }
 
   drawPenStroke(
@@ -172,7 +244,9 @@ export class Canvas {
     strokeStyle: CanvasRenderingContext2D["strokeStyle"] = "white"
   ) {
     if (points.length < 2) return;
+
     const context = this.ctx;
+    context.save();
     context.strokeStyle = strokeStyle;
     context.lineWidth = 2;
     context.lineCap = "round";
@@ -192,6 +266,7 @@ export class Canvas {
     const last = points[points.length - 1];
     context.lineTo(last.x, last.y);
     context.stroke();
+    context.restore();
   }
 
   shapeRenderer: Record<string, (drawing: any) => void> = {
@@ -206,6 +281,28 @@ export class Canvas {
     arrow: (d) => this.drawArrow(d.startX, d.startY, d.endX, d.endY, d.color),
 
     pencil: (d) => this.drawPenStroke(d.points ?? [], d.color),
+    text: (d) => {
+      const textContent = d.content ?? d.text ?? "";
+      this.drawText(
+        textContent,
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.color,
+        d.drawBox
+      );
+      // console.log("text array is", d.textArray, d.showCaret);
+
+      // if (d.caretPos !== undefined) {
+      this.drawCaret(
+        d.textArray ?? [],
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.showCaret,
+        d.color,
+        d.caretPos
+      );
+      // }
+    },
   };
 
   //might remove
@@ -282,6 +379,17 @@ export class Canvas {
         maxY = Math.max(maxY, point.y);
       });
     }
+    if (shape.type === "text") {
+      const context = this.ctx;
+      context.font = "48px serif";
+      const metrics = context.measureText(shape.text ?? "");
+      const textHeight = 48;
+
+      const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8;
+      minY -= textBaseline + 5;
+
+      maxY -= textBaseline + 0;
+    }
     this.selectedRectangleCoords = {
       startX: minX - 10 / scale,
       startY: minY - 10 / scale,
@@ -332,7 +440,14 @@ export class Canvas {
 
   redraw(
     camera: Camera,
-    existingShapes: Content[],
+    existingShapes: (Content & {
+      id?: string;
+      tempId?: string;
+      drawBox?: boolean;
+      caretPos?: number;
+      showCaret?: boolean;
+      textArray?: string[];
+    })[],
     selectedShapeIndex: number,
     erasedShapesIndexes: number[]
   ) {
@@ -427,6 +542,17 @@ export class Canvas {
             worldY
           );
           break;
+        case "text":
+          isHovering = this.mouseOnText(
+            element.startX ?? 0,
+            element.startY ?? 0,
+            element.endX ?? 0,
+            element.endY ?? 0,
+            worldX,
+            worldY,
+            element.text ?? ""
+          );
+          break;
         default:
           break;
       }
@@ -444,6 +570,77 @@ export class Canvas {
     const currentY = (currentXY.y - camera.y) / camera.scale;
     return this.mouseOnSelectedRectangle(currentX, currentY, 10 / camera.scale);
   }
+
+  mouseOnText(
+    startX: number,
+    startYWithBaseline: number,
+    endX: number,
+    endYWithBaseline: number,
+    currentX: number,
+    currentY: number,
+    text: string
+  ) {
+    const tolerance = 10;
+    const context = this.ctx;
+    context.font = "48px serif";
+    const metrics = context.measureText(text);
+    const textHeight = 48;
+
+    const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8;
+    const startY = startYWithBaseline - textBaseline;
+    const endY = endYWithBaseline - textBaseline;
+    const TLCorner =
+      Math.abs(startX - currentX) <= tolerance &&
+      Math.abs(startY - currentY) <= tolerance;
+    const TRCorner =
+      Math.abs(endX - currentX) <= tolerance &&
+      Math.abs(startY - currentY) <= tolerance;
+
+    const BRCorner =
+      Math.abs(endX - currentX) <= tolerance &&
+      Math.abs(endY - currentY) <= tolerance;
+    const BLCorner =
+      Math.abs(startX - currentX) <= tolerance &&
+      Math.abs(endY - currentY) <= tolerance;
+
+    const LeftEdge =
+      Math.abs(currentX - startX) <= tolerance &&
+      currentY >= startY - tolerance &&
+      currentY <= endY + tolerance;
+    const RightEdge =
+      Math.abs(currentX - endX) <= tolerance &&
+      currentY >= startY - tolerance &&
+      currentY <= endY + tolerance;
+    const TopEdge =
+      Math.abs(currentY - startY) <= tolerance &&
+      currentX >= startX - tolerance &&
+      currentX <= endX + tolerance;
+    const BottomEdge =
+      Math.abs(currentY - endY) <= tolerance &&
+      currentX >= startX - tolerance &&
+      currentX <= endX + tolerance;
+
+    const Center =
+      currentX >= startX &&
+      currentX <= endX &&
+      currentY >= startY &&
+      currentY <= endY;
+
+    if (
+      Center ||
+      TLCorner ||
+      TRCorner ||
+      TopEdge ||
+      BLCorner ||
+      BRCorner ||
+      BottomEdge ||
+      LeftEdge ||
+      RightEdge
+    ) {
+      return true;
+    }
+    return false;
+  }
   mouseOnSelectedRectangle(
     currentX: number,
     currentY: number,
@@ -458,22 +655,6 @@ export class Canvas {
     )
       return undefined;
 
-    // const startX = Math.min(
-    //   this.selectedRectangleCoords.startX,
-    //   this.selectedRectangleCoords.endX
-    // );
-    // const endX = Math.max(
-    //   this.selectedRectangleCoords.startX,
-    //   this.selectedRectangleCoords.endX
-    // );
-    // const startY = Math.min(
-    //   this.selectedRectangleCoords.startY,
-    //   this.selectedRectangleCoords.endY
-    // );
-    // const endY = Math.max(
-    //   this.selectedRectangleCoords.startY,
-    //   this.selectedRectangleCoords.endY
-    // );
     const { startX, startY, endX, endY } = this.selectedRectangleCoords;
 
     const TLCorner =

@@ -12,8 +12,8 @@ interface User {
   userId: string;
   ws: WebSocket;
   socketId: string;
-  roomId: number;
-  access: Record<number, Role>;
+  roomId: string;
+  access: Role;
 }
 
 const ShapeSchema = z.enum([
@@ -24,22 +24,92 @@ const ShapeSchema = z.enum([
   "arrow",
   "text",
 ]);
-const MessageSchema = z.object({
+const CanvasMessageSchema = z.object({
+  channel: z.literal("canvas"),
   type: ShapeSchema,
-  userId: z.string(),
-  roomId: z.string(),
-  text: z.string().optional(),
+  text: z.string().nullish(),
   startX: z.number().optional(),
   startY: z.number().optional(),
   endX: z.number().optional(),
   endY: z.number().optional(),
   points: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
   color: z.string(),
+  id: z.string().optional(),
 });
 
-const usersBySocket = new Map<string, User>();
-const socketByRoom = new Map<number, Set<string>>();
+const BanUserSchema = z.object({
+  channel: z.literal("room_control"),
+  operation: z.literal("ban_user"),
+  ban: z.boolean(),
+  targetUserId: z.string(),
+  roomId: z.string(),
+});
+const ChangeRoleSchema = z.object({
+  channel: z.literal("room_control"),
+  operation: z.literal("change_role"),
+  new_role: z.enum(["user", "moderator"]),
+  targetUserId: z.string(),
+  roomId: z.string(),
+});
+const RoomControlSchema = z.discriminatedUnion("operation", [
+  BanUserSchema,
+  ChangeRoleSchema,
+]);
+const ClientCreateSchema = CanvasMessageSchema.extend({
+  operation: z.literal("create"),
+  tempId: z.string(),
+});
 
+const ClientUpdateSchema = CanvasMessageSchema.extend({
+  operation: z.literal("update"),
+  id: z.string(),
+});
+
+const ClientDeleteSchema = CanvasMessageSchema.extend({
+  operation: z.literal("delete"),
+  id: z.string(),
+});
+
+const CanvasOperationSchema = z.discriminatedUnion("operation", [
+  ClientCreateSchema,
+  ClientUpdateSchema,
+  ClientDeleteSchema,
+]);
+const ClientMessageSchema = z.discriminatedUnion("channel", [
+  RoomControlSchema,
+  CanvasOperationSchema,
+]);
+
+const ServerCreateSchema = ClientCreateSchema.extend({
+  userId: z.string(),
+  roomId: z.string(),
+  timestamp: z.number(),
+});
+
+const ServerUpdateSchema = ClientUpdateSchema.extend({
+  userId: z.string(),
+  roomId: z.string(),
+  timestamp: z.number(),
+});
+
+const ServerDeleteSchema = ClientDeleteSchema.extend({
+  userId: z.string(),
+  roomId: z.string(),
+  timestamp: z.number(),
+});
+
+const ServerMessageSchema = z.discriminatedUnion("operation", [
+  ServerCreateSchema,
+  ServerUpdateSchema,
+  ServerDeleteSchema,
+]);
+
+const DbContentSchema = CanvasMessageSchema.omit({
+  id: true,
+});
+const usersBySocket = new Map<string, User>();
+const socketByRoom = new Map<string, Set<string>>();
+const socketByUserId = new Map<string, string>();
 function decodeToken(token: string | null) {
   if (!token) {
     return null;
@@ -57,7 +127,7 @@ function decodeToken(token: string | null) {
   }
 }
 
-wss.on("connection", (ws, request) => {
+wss.on("connection", async (ws, request) => {
   const cookies = request.headers.cookie;
   if (!cookies) {
     console.log("No cookies found");
@@ -82,6 +152,18 @@ wss.on("connection", (ws, request) => {
     ws.close();
     return;
   }
+  const accessRecord = await prismaClient.access.findUnique({
+    where: {
+      userId_roomId: {
+        userId,
+        roomId,
+      },
+    },
+  });
+  if (!accessRecord || accessRecord.isBanned) {
+    console.log("User is banned from this room");
+    ws.close(4003, "You are banned from this room");
+  }
   const socketId = uuid();
   const roomExists = socketByRoom.get(roomId);
   if (!roomExists) {
@@ -89,55 +171,84 @@ wss.on("connection", (ws, request) => {
   } else {
     roomExists.add(socketId);
   }
-  usersBySocket.set(socketId, { userId, ws, socketId, roomId, access });
-  console.log({ usersBySocket });
-  console.log(usersBySocket.size);
-  console.log(socketByRoom);
+
+  const existingConnection = socketByUserId.get(userId);
+  if (existingConnection) {
+    const oldUser = usersBySocket.get(existingConnection);
+
+    if (oldUser) {
+      const socketsInRoom = socketByRoom.get(oldUser.socketId);
+      socketsInRoom?.delete(existingConnection);
+      if (socketsInRoom && socketsInRoom.size === 0) {
+        socketByRoom.delete(oldUser.roomId);
+      }
+
+      oldUser.ws.close(4001, "Logged in from another tab");
+    }
+    usersBySocket.delete(existingConnection);
+    socketByUserId.delete(userId);
+  }
+  usersBySocket.set(socketId, {
+    userId,
+    ws,
+    socketId,
+    roomId,
+    access,
+  });
+  socketByUserId.set(userId, socketId);
 
   ws.on("message", async (msg: Buffer) => {
-    const toParseMessage = msg.toString();
-    const message = JSON.parse(toParseMessage);
+    try {
+      const toParseMessage = msg.toString();
+      const message = JSON.parse(toParseMessage);
 
-    console.log("message : ", message, typeof message);
-    const { type, ...rest } = message;
-    const validateType = ShapeSchema.safeParse(type);
-    if (!validateType.success) {
-      console.log("Invalid shape type", validateType.error);
-      return;
+      const validatedMessage = ClientMessageSchema.safeParse({
+        ...message,
+      });
+      console.log("validated message data", validatedMessage.data);
+
+      if (!validatedMessage.success) {
+        console.log("Invalid message", validatedMessage.error);
+        return;
+      }
+
+      if (validatedMessage.data.channel === "room_control") {
+        if (validatedMessage.data.operation === "ban_user") {
+          await handleBan(validatedMessage.data, socketId, roomId);
+        }
+        if (validatedMessage.data.operation === "change_role") {
+          await handleRoleChange(validatedMessage.data, socketId, roomId);
+        }
+      }
+      if (validatedMessage.data.channel === "canvas") {
+        switch (validatedMessage.data.operation) {
+          case "create":
+            await handleCreate(validatedMessage.data, userId, roomId, socketId);
+            break;
+          case "update":
+            await handleUpdate(validatedMessage.data, userId, roomId, socketId);
+            break;
+          case "delete":
+            await handleDelete(validatedMessage.data, userId, roomId, socketId);
+            break;
+        }
+      }
+    } catch (err) {
+      console.error("Error during recieving message", err);
     }
-    const validatedMessage = MessageSchema.safeParse({
-      type,
-      ...rest,
-      userId,
-      roomId,
-    });
-    if (!validatedMessage.success) {
-      console.log("Invalid message", validatedMessage.error);
-      return;
-    }
-    sendMessageToRoom(roomId, validatedMessage, userId, socketId);
-    console.log("about to store dat in db");
-    console.log({
-      validatedMessage: validatedMessage.data,
-    });
-    const response = await prismaClient.content.create({
-      data: {
-        ...validatedMessage.data,
-      },
-    });
-    console.log("response of db store");
-    console.log({ response });
   });
   ws.on("close", () => {
+    socketByUserId.delete(userId);
+
     usersBySocket.delete(socketId);
     const lastInRoom = socketByRoom.get(roomId);
     if (!lastInRoom) {
       console.error("Room is already empty");
       return;
     }
-    if (lastInRoom?.size > 1) {
-      lastInRoom?.delete(socketId);
-    } else {
+    lastInRoom.delete(socketId);
+
+    if (lastInRoom.size === 0) {
       socketByRoom.delete(roomId);
     }
 
@@ -147,10 +258,10 @@ wss.on("connection", (ws, request) => {
 });
 
 function sendMessageToRoom(
-  roomId: number,
-  message: any,
+  roomId: string,
+  message: z.infer<typeof ServerMessageSchema>,
   userId: string,
-  socketIdOfSender: string
+  inclusive: boolean = false
 ) {
   const sockets = socketByRoom.get(roomId);
   console.log("messages to be sent to these sockets", sockets);
@@ -164,9 +275,233 @@ function sendMessageToRoom(
     console.log({ user });
     console.log("user sneding is", userId, " To send to is ", user?.userId);
     console.log("access", user?.access);
-    if (user && user.userId !== userId && !!user.access) {
+    if (user === undefined) {
+      return;
+    }
+    const sameUser = user.userId === userId;
+    if (inclusive || !sameUser) {
       user.ws.send(JSON.stringify(message));
     }
   });
 }
+async function handleCreate(
+  message: z.infer<typeof ClientCreateSchema>,
+  userId: string,
+  roomId: string,
+  socketId: string
+) {
+  const { tempId, ...rest } = message;
+  const messageForDB = DbContentSchema.parse(rest);
+  const response = await prismaClient.content.create({
+    data: {
+      ...messageForDB,
+      roomId: roomId,
+      userId,
+    },
+  });
+  const createMessageFormat = {
+    ...message,
+    userId,
+    roomId: roomId,
+    timestamp: Date.now(),
+    tempId,
+    id: response.id,
+  };
+  console.log("message validation before sending ", createMessageFormat);
+  const validatedCreateMsg = ServerCreateSchema.safeParse(createMessageFormat);
+  if (!validatedCreateMsg.success) {
+    console.log("Error parsing message", validatedCreateMsg.error);
+    return;
+  }
+  sendMessageToRoom(roomId, validatedCreateMsg.data, userId, true);
+
+  console.log("response of db store");
+  console.log({ response });
+}
+async function handleUpdate(
+  message: z.infer<typeof ClientUpdateSchema>,
+  userId: string,
+  roomId: string,
+  socketId: string
+) {
+  const content = await prismaClient.content.findFirst({
+    where: {
+      id: message.id,
+      roomId: roomId,
+    },
+  });
+  if (!content) {
+    console.log("Content not found for given id in room");
+    return;
+  }
+  const hasPermission =
+    content.userId === userId ||
+    (await checkUserPermission(socketId, roomId, ["admin", "moderator"]));
+  if (!hasPermission) {
+    console.log("User does not have permission to update content");
+    return;
+  }
+  const updateMessageFormat = {
+    ...message,
+    userId,
+    roomId: roomId,
+    timestamp: Date.now(),
+  };
+  const validatedUpdateMsg = ServerUpdateSchema.safeParse(updateMessageFormat);
+  if (!validatedUpdateMsg.success) {
+    console.log("Error parsing message", validatedUpdateMsg.error);
+    return;
+  }
+  sendMessageToRoom(roomId, validatedUpdateMsg.data, userId);
+  const messageForDB = DbContentSchema.parse(message);
+
+  const response = await prismaClient.content.update({
+    where: {
+      id: message.id,
+    },
+    data: {
+      ...messageForDB,
+    },
+  });
+}
+async function handleDelete(
+  message: z.infer<typeof ClientDeleteSchema>,
+  userId: string,
+  roomId: string,
+  socketId: string
+) {
+  const content = await prismaClient.content.findFirst({
+    where: {
+      id: message.id,
+    },
+  });
+  if (!content) {
+    console.log("Content to be deleted not found");
+    return;
+  }
+  const hasPermission =
+    content.userId === userId ||
+    (await checkUserPermission(socketId, roomId, ["admin", "moderator"]));
+  if (!hasPermission) {
+    console.log("User does not have permission to update content");
+    return;
+  }
+
+  const response = await prismaClient.content.delete({
+    where: {
+      id: message.id,
+    },
+  });
+  if (!response) {
+    console.log("Error deleting content");
+    return;
+  }
+  const serverDeleteMsg = ServerDeleteSchema.parse({
+    ...message,
+    userId,
+    roomId,
+    timestamp: Date.now(),
+  });
+
+  sendMessageToRoom(roomId, serverDeleteMsg, userId);
+}
 console.log("websocket server listening at 8080 port ");
+
+const checkUserPermission = async (
+  socketId: string,
+  roomId: string,
+  permissionArray: Role[]
+) => {
+  const user = usersBySocket.get(socketId);
+  if (!user) {
+    console.log("user not found", user);
+    return false;
+  }
+  const roleInRoom = user.access;
+  if (!roleInRoom) {
+    console.log("role not found", user);
+
+    return false;
+  }
+  console.log("user has role ", roleInRoom);
+  return permissionArray.includes(roleInRoom);
+};
+
+const handleBan = async (
+  message: z.infer<typeof BanUserSchema>,
+  socketId: string,
+  roomId: string
+) => {
+  const isAdmin = await checkUserPermission(socketId, roomId, ["admin"]);
+  if (!isAdmin) {
+    console.log("User does not have rights to ban someone");
+    return;
+  }
+  const response = await prismaClient.access.update({
+    where: {
+      userId_roomId: {
+        userId: message.targetUserId,
+        roomId,
+      },
+    },
+    data: { isBanned: message.ban },
+  });
+  if (!response) {
+    console.log("Error updating value at DB level");
+    return;
+  }
+  const targetUserSocketId = socketByUserId.get(message.targetUserId);
+  if (!targetUserSocketId) {
+    console.log("User is currently not active");
+    return;
+  }
+  const targetUser = usersBySocket.get(targetUserSocketId);
+  if (!targetUser) {
+    console.log("cannot find user by socket id");
+    return;
+  }
+  targetUser.ws.send(JSON.stringify(message));
+  targetUser.ws.close(4003, "You are banned");
+};
+
+const handleRoleChange = async (
+  message: z.infer<typeof ChangeRoleSchema>,
+  socketId: string,
+  roomId: string
+) => {
+  const isAdmin = await checkUserPermission(socketId, roomId, ["admin"]);
+  if (!isAdmin) {
+    console.log("User does not have rights to modify role of someone");
+    return;
+  }
+  if (message.roomId !== roomId) {
+    console.log("Error because of mismatched room IDs");
+  }
+  const response = await prismaClient.access.update({
+    where: {
+      userId_roomId: {
+        userId: message.targetUserId,
+        roomId,
+      },
+    },
+    data: { role: message.new_role },
+  });
+  if (!response) {
+    console.log("Error updating value at DB level");
+    return;
+  }
+  const targetUserSocketId = socketByUserId.get(message.targetUserId);
+
+  if (!targetUserSocketId) {
+    console.log("User is currently not active");
+    return;
+  }
+  const targetUser = usersBySocket.get(targetUserSocketId);
+  if (!targetUser) {
+    console.log("cannot find user by socket id");
+    return;
+  }
+  targetUser.access = message.new_role;
+  targetUser.ws.send(JSON.stringify(message));
+  targetUser.ws.close(4003, "Roles changed please rejoin");
+};

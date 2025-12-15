@@ -18,4 +18,5 @@ export type Content = {
   endY?: number;
   points?: Json;
   color: CanvasRenderingContext2D["strokeStyle"];
+  userId: string;
 };

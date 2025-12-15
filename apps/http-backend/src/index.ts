@@ -189,6 +189,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
     return;
   }
   let access;
+  let userId;
   try {
     const room = await slugToRoom(slug);
     if (!room) {
@@ -244,6 +245,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         return;
       }
       access = response.role;
+      userId = response.id;
     } else {
       if (hasAccess.isBanned) {
         res.status(403).json({
@@ -272,6 +274,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         success: true,
         message: "Cookies set successfully",
         access: access,
+        userId: req.userId,
       });
   } catch (err) {
     console.error("Error getting room : ", err);

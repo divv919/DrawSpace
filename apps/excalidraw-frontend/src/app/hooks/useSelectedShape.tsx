@@ -15,7 +15,9 @@ export function useSelectedShape({
     x: number;
     y: number;
   }>;
-  setExistingShapes: React.Dispatch<SetStateAction<Content[]>>;
+  setExistingShapes: React.Dispatch<
+    SetStateAction<(Content & { id?: string; tempId?: string })[]>
+  >;
 }) {
   const [isMovingObject, setIsMovingObject] = useState(false);
   const [isResizingObject, setIsResizingObject] = useState(false);
@@ -37,11 +39,24 @@ export function useSelectedShape({
     camera: Camera,
     e: React.MouseEvent,
     erasedShapesIndexes: number[],
-    canvas: Canvas
+    canvas: Canvas,
+    socket: WebSocket,
+    user: {
+      userId: undefined | string;
+      access: "user" | "admin" | "moderator" | undefined;
+    }
   ) => {
     // add logic for moving object
     const selectedShape = existingShapes[selectedShapeIndex];
+    if (selectedShape.userId !== user.userId && user.access === "user") {
+      alert("cannot move object");
 
+      setIsMovingObject(false);
+      // setSelectedShapeIndex(-1);
+      setHandle(undefined);
+
+      return;
+    }
     const worldDeltaX =
       (e.clientX - lastMousePosition.current.x) / camera.scale;
     const worldDeltaY =
@@ -80,14 +95,23 @@ export function useSelectedShape({
       selectedShapeIndex,
       erasedShapesIndexes
     );
+
+    const formattedUpdate = { ...updatedShape, operation: "update" };
+
     setExistingShapes(updatedShapes);
+    socket.send(JSON.stringify(formattedUpdate));
   };
 
   const handleObjectResize = (
     camera: Camera,
     e: React.MouseEvent,
     erasedShapesIndexes: number[],
-    canvas: Canvas
+    canvas: Canvas,
+    socket: WebSocket,
+    user: {
+      userId: undefined | string;
+      access: "user" | "admin" | "moderator" | undefined;
+    }
   ) => {
     const worldDeltaX =
       (e.clientX - lastMousePosition.current.x) / camera.scale;
@@ -95,8 +119,17 @@ export function useSelectedShape({
       (e.clientY - lastMousePosition.current.y) / camera.scale;
 
     const selectedShape = existingShapes[selectedShapeIndex];
+    if (selectedShape.userId !== user.userId && user.access === "user") {
+      setIsResizingObject(false);
+      // setSelectedShapeIndex(-1);
+      setHandle(undefined);
+      alert("cannot resize other's shape");
+      return;
+    }
     let updatedShape: Content;
-
+    if (selectedShape.type === "text") {
+      return;
+    }
     if (selectedShape.type === "pencil") {
       // === PENCIL STROKE: Scale all points proportionally ===
       const points = selectedShape.points || [];
@@ -353,8 +386,10 @@ export function useSelectedShape({
       selectedShapeIndex,
       erasedShapesIndexes
     );
+    const formattedUpdate = { ...updatedShape, operation: "update" };
     setExistingShapes(updatedShapes);
 
+    socket.send(JSON.stringify(formattedUpdate));
     lastMousePosition.current = {
       x: e.clientX,
       y: e.clientY,

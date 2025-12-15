@@ -11,6 +11,8 @@ import { createCamera } from "@/app/lib/camera";
 import type { Camera } from "@/app/lib/camera";
 import { useErasor } from "@/app/hooks/useErasor";
 import { useSelectedShape } from "@/app/hooks/useSelectedShape";
+import { useTextBox } from "@/app/hooks/useTextBox";
+import { v4 } from "uuid";
 const shapes: Shape[] = [
   "select",
   "hand",
@@ -42,14 +44,35 @@ const normalizeShape = (shape: Content): Content => {
 
   return normalized;
 };
+// Helper function to remove null values from an object
+const removeNullValues = <T extends Record<string, any>>(
+  obj: T
+): Partial<T> => {
+  const result: Partial<T> = {};
+  for (const key in obj) {
+    if (obj[key] !== null) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+};
 
 const CanvasComponent = ({
   existingShapes,
+  user,
   socket,
   setExistingShapes,
 }: {
-  existingShapes: Content[];
-  setExistingShapes: React.Dispatch<React.SetStateAction<Content[]>>;
+  user: {
+    userId: undefined | string;
+    access: "user" | "admin" | "moderator" | undefined;
+  };
+  existingShapes: (Content & { id?: string; tempId?: string })[];
+  setExistingShapes: React.Dispatch<
+    React.SetStateAction<
+      (Content & { id?: string; tempId?: string; userId: string })[]
+    >
+  >;
   socket: WebSocket;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -70,7 +93,30 @@ const CanvasComponent = ({
     height: 0,
   });
   const [isDragging, setIsDragging] = useState(false);
-
+  const [tempTextValue, setTempTextValue] = useState<
+    Content & {
+      drawBox: boolean;
+      showCaret: boolean;
+      caretPos: number;
+      textArray: string[];
+    }
+  >({
+    color: "transparent",
+    type: "text",
+    text: "",
+    drawBox: false,
+    showCaret: false,
+    caretPos: -1,
+    textArray: [],
+    userId: user.userId ?? "",
+  });
+  const [caretVisible, setCaretVisible] = useState(false);
+  const [lastTypingTime, setLastTypingTime] = useState(Date.now());
+  const caretBlinkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [lastSelectTextClick, setLastSelectTextClick] = useState(-1);
+  const { current: userAccess } = useRef(
+    localStorage.getItem("access") ?? "user"
+  );
   // last mouse position is used when drawing lines by pencil
   const lastMousePosition = useRef<{ x: number; y: number }>({
     x: 0,
@@ -86,6 +132,7 @@ const CanvasComponent = ({
   } = useErasor({
     canvas,
     existingShapes,
+    user,
   });
   const {
     setSelectedShapeIndex,
@@ -105,6 +152,20 @@ const CanvasComponent = ({
     lastMousePosition,
     setExistingShapes,
   });
+  const {
+    currentText,
+    isEditingText,
+    setIsEditingText,
+    handleTextBoxEditing,
+    handleTextBoxTrigger,
+    currentTextBoxXY,
+    setCurrentTextBoxXY,
+    currentCaretPos,
+    setCurrentText,
+    setCurrentCaretPos,
+    finalizeTextShape,
+    editingTextIndex,
+  } = useTextBox({ canvas, existingShapes });
 
   const MIN_ZOOM = 0.2;
   const MAX_ZOOM = 5;
@@ -114,6 +175,8 @@ const CanvasComponent = ({
 
   // this acts like a viewport for the user
   const camera = useRef<Camera | null>(null);
+  // for testing logs - todel
+
   useEffect(() => {
     if (camera.current === null) {
       camera.current = createCamera(0, 0, 1);
@@ -128,9 +191,7 @@ const CanvasComponent = ({
         e.preventDefault();
       }
     };
-
     document.addEventListener("wheel", disableZoom, { passive: false });
-
     return () => {
       document.removeEventListener("wheel", disableZoom);
     };
@@ -139,17 +200,143 @@ const CanvasComponent = ({
   useEffect(() => {
     if (!canvas || !camera.current) return;
 
+    // When switching away from text editing, clear temp text
+    if (currentShape !== "text") {
+      setTempTextValue({
+        color: "white",
+        type: "text",
+        text: "",
+        drawBox: false,
+        caretPos: -1,
+        showCaret: false,
+        textArray: [],
+        userId: user.userId ?? "",
+      });
+      setIsEditingText(false);
+    }
+
     if (currentShape !== "select") {
       setHandle(undefined);
       setSelectedShapeIndex(-1);
-      canvas.redraw(camera.current, existingShapes, -1, erasedShapesIndexes);
     }
+
     if (currentShape !== "erasor") {
       setIsErasing(false);
       setErasedShapesIndexes([]);
     }
   }, [currentShape]);
 
+  // Add a ref to track if color change is from user selection vs user color picker
+  const isColorChangeFromSelection = useRef(false);
+
+  // Effect to update selected shape's color when color changes
+  useEffect(() => {
+    if (
+      !canvas ||
+      !camera.current ||
+      currentShape !== "select" ||
+      selectedShapeIndex === -1 ||
+      isEditingText ||
+      isMovingObject ||
+      isResizingObject ||
+      isDrawing ||
+      isColorChangeFromSelection.current
+    ) {
+      return;
+    }
+
+    // Get the selected shape
+    const selectedShape = existingShapes[selectedShapeIndex];
+    if (!selectedShape) {
+      return;
+    }
+    if (selectedShape.color === currentColor) {
+      return;
+    }
+    if (selectedShape.userId !== user.userId && user.access === "user") {
+      alert("cannot change property of others");
+      setCurrentColor(selectedShape.color);
+      return;
+    }
+
+    // Only update if the color actually changed
+
+    if (!selectedShape.id) {
+      return;
+    }
+    // Update the shape's color in existingShapes
+    const updated = [...existingShapes];
+    updated[selectedShapeIndex] = {
+      ...updated[selectedShapeIndex],
+      color: currentColor,
+    };
+
+    // Update state
+    setExistingShapes(updated);
+    const { startX, startY, text, type, endX, endY, points } = selectedShape;
+    // Send to websocket server
+
+    socket.send(
+      JSON.stringify({
+        operation: "update",
+        color: currentColor,
+        startX,
+        startY,
+        text,
+        type,
+        endX,
+        endY,
+        points,
+        id: selectedShape.id,
+      })
+    );
+
+    // Redraw canvas
+    canvas.redraw(
+      camera.current,
+      updated,
+      selectedShapeIndex,
+      erasedShapesIndexes
+    );
+  }, [
+    currentColor,
+    selectedShapeIndex,
+    currentShape,
+    isEditingText,
+    isMovingObject,
+    isResizingObject,
+    isDrawing,
+    canvas,
+    camera,
+    // existingShapes,
+    socket,
+    erasedShapesIndexes,
+  ]);
+
+  // Separate effect for redraw to ensure state is updated
+  useEffect(() => {
+    if (!canvas || !camera.current) return;
+
+    // Only include tempTextValue if we're editing text
+    const shapesToRender =
+      isEditingText && currentShape === "text"
+        ? [...existingShapes, tempTextValue]
+        : existingShapes;
+
+    const selectedIndex = currentShape === "select" ? selectedShapeIndex : -1;
+    const erasedIndexes = currentShape === "erasor" ? erasedShapesIndexes : [];
+
+    canvas.redraw(camera.current, shapesToRender, selectedIndex, erasedIndexes);
+  }, [
+    currentShape,
+    existingShapes,
+    tempTextValue,
+    isEditingText,
+    selectedShapeIndex,
+    erasedShapesIndexes,
+    canvas,
+    camera,
+  ]);
   // making the size of canvas according to the device width and height
   useEffect(() => {
     const listener = () => {
@@ -164,8 +351,8 @@ const CanvasComponent = ({
     window.addEventListener("resize", listener);
     return () => window.removeEventListener("resize", listener);
   }, []);
-
-  // every zoom in or zoom out requires the canvas to redraw,
+  useEffect(() => {});
+  // every zoom in or zoom out with button tap requires the canvas to redraw,
   // basically enforcing the zoom logic
   useEffect(() => {
     if (!canvas || !camera.current) {
@@ -173,34 +360,180 @@ const CanvasComponent = ({
     }
     canvas.redraw(
       camera.current,
-      existingShapes,
+      [...existingShapes, tempTextValue],
       selectedShapeIndex,
       erasedShapesIndexes
     );
   }, [zoomLevel]);
 
   // for initializing the canvas
+
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
       setCanvas(createCanvas(canvas));
     }
   }, [canvasRef.current]);
+
+  useEffect(() => {
+    if (!isEditingText) {
+      // Clear blinking when not editing
+      if (caretBlinkIntervalRef.current) {
+        clearInterval(caretBlinkIntervalRef.current);
+        caretBlinkIntervalRef.current = null;
+      }
+      setCaretVisible(false);
+      return;
+    }
+
+    // Start blinking animation
+    const blinkInterval = setInterval(() => {
+      const timeSinceLastTyping = Date.now() - lastTypingTime;
+      // Show caret when typing (within 500ms of last keystroke)
+      if (timeSinceLastTyping < 500) {
+        setCaretVisible(true);
+      } else {
+        // Blink when idle
+        setCaretVisible((prev) => !prev);
+      }
+    }, 530); // Blink every 530ms (standard caret blink rate)
+
+    caretBlinkIntervalRef.current = blinkInterval;
+
+    return () => {
+      if (caretBlinkIntervalRef.current) {
+        clearInterval(caretBlinkIntervalRef.current);
+        caretBlinkIntervalRef.current = null;
+      }
+    };
+  }, [isEditingText, lastTypingTime]);
+
   // selecting shapes using keys logic
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        setCurrentShape(shapes[Number(e.key) - 1]);
+      if (!canvas || !camera.current) return;
+      if (e.key === "Delete" && selectedShapeIndex !== -1) {
+        const selectedShape = existingShapes[selectedShapeIndex];
+        console.log(
+          "selected shape user id is ",
+          selectedShape.userId,
+          " my user id",
+          user.userId,
+          "and access",
+          user.access
+        );
+        if (selectedShape.userId !== user.userId && user.access === "user") {
+          alert("not allowed to delete items drawn by other people");
+
+          return;
+          //prompt not allowed
+        }
+        const updated = existingShapes.filter(
+          (_, index) => selectedShapeIndex !== index
+        );
+        const formattedUpdate = {
+          ...existingShapes[selectedShapeIndex],
+          operation: "delete",
+        };
+        socket.send(JSON.stringify(formattedUpdate));
+        setExistingShapes(updated);
+        setSelectedShapeIndex(-1);
+        setHandle(undefined);
+        canvas.redraw(camera.current, updated, -1, erasedShapesIndexes);
+        return;
       }
       if (e.key === "Escape") {
         setCurrentShape(shapes[0]);
+        if (isEditingText) {
+          finalizeTextShape({
+            camera: camera.current,
+            canvas,
+            socket,
+            existingShapes,
+            setExistingShapes,
+            currentColor,
+            selectedShapeIndex,
+            erasedShapesIndexes,
+            editingIndex: editingTextIndex ?? undefined,
+          });
+        }
+        return;
+      }
+
+      if (isEditingText) {
+        setLastTypingTime(Date.now());
+        setCaretVisible(true);
+        handleTextBoxEditing(e.key);
+        return;
+      }
+      if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
+        setCurrentShape(shapes[Number(e.key) - 1]);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [
+    canvas,
+    camera,
+    isEditingText,
+    currentText,
+    currentTextBoxXY,
+    currentCaretPos,
+    tempTextValue,
+    selectedShapeIndex,
+  ]);
 
+  useEffect(() => {
+    if (!canvas || !camera.current) {
+      return;
+    }
+
+    // Only render text preview when editing
+    if (isEditingText) {
+      setTempTextValue({
+        type: "text",
+        text: (currentText ?? []).join(""),
+        startX: currentTextBoxXY.x,
+        startY: currentTextBoxXY.y,
+        color: currentColor,
+        drawBox: true,
+        showCaret: caretVisible,
+        caretPos: currentCaretPos,
+        textArray: currentText,
+        userId: user.userId ?? "",
+      });
+      canvas.redraw(
+        camera.current,
+        [
+          ...existingShapes,
+          {
+            type: "text",
+            text: (currentText ?? []).join(""),
+            startX: currentTextBoxXY.x,
+            startY: currentTextBoxXY.y,
+            color: currentColor,
+            drawBox: true,
+            showCaret: caretVisible,
+            caretPos: currentCaretPos,
+            textArray: currentText,
+            userId: user.userId ?? "",
+          },
+        ],
+        selectedShapeIndex,
+        erasedShapesIndexes
+      );
+    }
+  }, [
+    currentText,
+    currentTextBoxXY,
+    currentCaretPos,
+    isEditingText,
+    canvas,
+    camera,
+    currentColor,
+    caretVisible,
+  ]);
   // as the existing shapes change this will run , making sure that
   // the shapes recieved by the express server are rendered as
   // soon as they get recieved
@@ -211,7 +544,7 @@ const CanvasComponent = ({
 
     canvas.redraw(
       camera.current,
-      existingShapes,
+      [...existingShapes, tempTextValue],
       selectedShapeIndex,
       erasedShapesIndexes
     );
@@ -223,16 +556,33 @@ const CanvasComponent = ({
       return;
     }
 
+    if (isEditingText) {
+      return;
+    }
     if (isErasing) {
       captureErasingShapes(camera.current, selectedShapeIndex, e);
       return;
     }
 
     if (isMovingObject) {
-      handleObjectMove(camera.current, e, erasedShapesIndexes, canvas);
+      handleObjectMove(
+        camera.current,
+        e,
+        erasedShapesIndexes,
+        canvas,
+        socket,
+        user
+      );
     }
     if (isResizingObject) {
-      handleObjectResize(camera.current, e, erasedShapesIndexes, canvas);
+      handleObjectResize(
+        camera.current,
+        e,
+        erasedShapesIndexes,
+        canvas,
+        socket,
+        user
+      );
       return;
     }
     if (currentShape === "select") {
@@ -299,9 +649,12 @@ const CanvasComponent = ({
           camera.current.x,
           camera.current.y
         );
+
       existingShapes.map((shape: Content) => {
         const renderer = canvas.shapeRenderer[shape.type];
+
         renderer(shape);
+
         return;
       });
 
@@ -318,6 +671,12 @@ const CanvasComponent = ({
         points: penPoints,
         color: currentColor,
       });
+      // canvas.redraw(
+      //   camera.current,
+      //   existingShapes,
+      //   selectedShapeIndex,
+      //   erasedShapesIndexes
+      // );
       if (currentShape === "pencil") {
         setPenPoints((prev) => [...prev, { x: worldX, y: worldY }]);
       }
@@ -328,14 +687,60 @@ const CanvasComponent = ({
     if (!canvas || !camera.current) {
       return;
     }
-    if (isErasing || currentShape === "erasor") {
+    if (currentShape === "text") {
+      // setIsEditingText(true);
+      return;
+    }
+    if (isErasing && currentShape === "erasor") {
       if (isErasing) {
-        finishErasing(camera.current, selectedShapeIndex, setExistingShapes);
+        finishErasing(
+          camera.current,
+          selectedShapeIndex,
+          setExistingShapes,
+          socket
+        );
       }
       setIsErasing(false);
+      setErasedShapesIndexes([]);
       return;
     }
     if (currentShape === "select") {
+      if (
+        existingShapes[selectedShapeIndex] &&
+        existingShapes[selectedShapeIndex].type === "text"
+      ) {
+        console.log("last ", lastSelectTextClick, "now", Date.now());
+        const timeGap = Date.now() - lastSelectTextClick;
+        if (lastSelectTextClick > 0 && timeGap < 400) {
+          console.log("doubnle clcik worked");
+          setIsEditingText(true);
+          const shape = existingShapes[selectedShapeIndex];
+
+          // Mark that we're setting color from selection
+          isColorChangeFromSelection.current = true;
+          setCurrentColor(shape.color);
+          setTimeout(() => {
+            isColorChangeFromSelection.current = false;
+          }, 0);
+
+          setCurrentText(shape.text?.split("") ?? []);
+          setCurrentTextBoxXY({
+            x: shape.startX ?? 0,
+            y: shape.startY ?? 0,
+          });
+          setSelectedShapeIndex(-1);
+          setHandle(undefined);
+          setCurrentShape("text");
+
+          existingShapes[selectedShapeIndex].color = "rgba(255,255,255,0)";
+          setCurrentCaretPos((shape.text?.length ?? 0) - 1);
+        }
+        setLastSelectTextClick(Date.now());
+
+        setIsMovingObject(false);
+        setIsResizingObject(false);
+        return;
+      }
       if (isResizingObject && selectedShapeIndex !== -1) {
         // Normalize the shape coordinates after resize
         const updatedShapes = [...existingShapes];
@@ -379,7 +784,7 @@ const CanvasComponent = ({
     const dy = Math.abs(startXY.y - worldY);
 
     if (dx < 1 && dy < 1) return; // ignore micro clicks
-
+    const tempId = v4();
     // Create the new shape object
     const newShape = {
       startX: startXY?.x || 0,
@@ -389,6 +794,8 @@ const CanvasComponent = ({
       type: currentShape,
       color: currentColor,
       points: currentShape === "pencil" ? penPoints : [],
+      tempId,
+      userId: user.userId ?? "",
     };
 
     // Create the updated shapes array with the new shape
@@ -413,6 +820,7 @@ const CanvasComponent = ({
     // send to websocket server
     socket.send(
       JSON.stringify({
+        operation: "create",
         color: currentColor,
         type: currentShape,
         endX: worldX,
@@ -420,12 +828,38 @@ const CanvasComponent = ({
         startX: startXY.x,
         startY: startXY.y,
         points: penPoints,
+
+        tempId,
       })
     );
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvas || !camera.current) {
+      return;
+    }
+
+    // Finish text editing if clicking outside the textbox
+    if (isEditingText) {
+      finalizeTextShape({
+        camera: camera.current,
+        canvas,
+        socket,
+        existingShapes,
+        setExistingShapes,
+        currentColor,
+        selectedShapeIndex,
+        erasedShapesIndexes,
+        editingIndex: editingTextIndex ?? undefined,
+      });
+      setCurrentShape("select");
+
+      return;
+    }
+
+    if (currentShape === "text") {
+      handleTextBoxTrigger(camera.current, e);
+      setCaretVisible(true);
       return;
     }
     if (currentShape === "select") {
@@ -451,9 +885,19 @@ const CanvasComponent = ({
         }
       }
       setSelectedShapeIndex(hoveredShapeIndex);
+
+      // Mark that we're setting color from selection, not user color picker
+      isColorChangeFromSelection.current = true;
+      setCurrentColor(existingShapes[hoveredShapeIndex]?.color ?? "white");
+
+      // Reset the flag after a brief delay
+      setTimeout(() => {
+        isColorChangeFromSelection.current = false;
+      }, 0);
+
       canvas.redraw(
         camera.current,
-        existingShapes,
+        [...existingShapes, tempTextValue],
         hoveredShapeIndex,
         erasedShapesIndexes
       );
@@ -495,6 +939,14 @@ const CanvasComponent = ({
         { x: e.clientX, y: e.clientY }
       );
       setHoveredShapeIndex(hoveredElementIndex);
+      const selectedShapeInfo = canvas.getSelectedRectangleInfo(
+        camera.current,
+        {
+          x: e.clientX,
+          y: e.clientY,
+        }
+      );
+      setHandle(selectedShapeInfo);
     }
     // handling mouse movement through wheel
     if (!e.ctrlKey) {
@@ -514,7 +966,7 @@ const CanvasComponent = ({
 
       canvas.redraw(
         camera.current,
-        existingShapes,
+        [...existingShapes, tempTextValue],
         selectedShapeIndex,
         erasedShapesIndexes
       );
@@ -551,14 +1003,15 @@ const CanvasComponent = ({
     // redrawing all the shapes respective to current camera
     canvas.redraw(
       camera.current,
-      existingShapes,
+      [...existingShapes, tempTextValue],
+
       selectedShapeIndex,
       erasedShapesIndexes
     );
   };
 
   return (
-    <div className="h-screen w-screen  scrollbar-none">
+    <div className="h-screen w-screen  scrollbar-none relative">
       <canvas
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

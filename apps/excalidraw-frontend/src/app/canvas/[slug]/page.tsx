@@ -16,6 +16,7 @@ const checkOrGetAccess = async (
     access: "user" | "admin" | "moderator" | undefined;
     success: boolean;
     prompt_password: boolean | undefined;
+    userId: string;
   }>(`/room/${slug}`, {
     method,
     body: JSON.stringify(body),
@@ -31,11 +32,21 @@ const CanvasPage = () => {
   const [pageState, setPageState] = useState<
     "promptPassword" | "accessGranted" | "unavailable" | "loading"
   >("loading");
+  const [user, setUser] = useState<{
+    userId: undefined | string;
+    access: "user" | "admin" | "moderator" | undefined;
+  }>({ userId: undefined, access: undefined });
+
   useEffect(() => {
     async function checkAccess() {
       setPageState("loading");
       const response = await checkOrGetAccess(slug, "POST");
+
       if (response.success) {
+        setUser({
+          userId: response.userId,
+          access: response.access,
+        });
         if (response.prompt_password) {
           setPageState("promptPassword");
         } else {
@@ -60,6 +71,12 @@ const CanvasPage = () => {
       } else {
         setPageState("accessGranted");
       }
+      console.log(
+        "response id ",
+        response.userId,
+        "user access",
+        response.access
+      );
     } else {
       setPageState("unavailable");
     }
@@ -82,7 +99,7 @@ const CanvasPage = () => {
   if (pageState === "accessGranted") {
     return (
       <div>
-        <CanvasComponentForWS slug={slug} />
+        <CanvasComponentForWS user={user} slug={slug} />
       </div>
     );
   }
