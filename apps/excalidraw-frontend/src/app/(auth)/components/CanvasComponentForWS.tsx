@@ -5,6 +5,7 @@ import CanvasComponent from "./CanvasComponent";
 import { WEBSOCKET_URL } from "@/config/variables";
 import { Content } from "@/types/canvas";
 import { fetchJSON } from "@/app/api/rooms";
+import { RoomUser } from "@/app/canvas/[slug]/page";
 
 type CreateMessage = Content & {
   tempId?: string;
@@ -26,12 +27,14 @@ type WSMessage = UpdateMessage | DeleteMessage | CreateMessage;
 function CanvasComponentForWS({
   slug,
   user,
+  roomUsers,
 }: {
   slug: string;
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
   };
+  roomUsers: RoomUser[];
 }) {
   const [socketConnection, setSocketConnection] = useState<WebSocket | null>(
     null
@@ -161,6 +164,7 @@ function CanvasComponentForWS({
   }
   return (
     <CanvasComponent
+      roomUsers={roomUsers}
       user={user}
       existingShapes={existingShapes}
       socket={socketConnection}

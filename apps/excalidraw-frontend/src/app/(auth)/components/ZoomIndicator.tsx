@@ -18,7 +18,7 @@ export default function ZoomIndicator({
     return;
   }
   return (
-    <div className="flex gap-3 items-center overflow-hidden rounded-md absolute bottom-10 right-10 bg-neutral-800">
+    <div className="flex gap-3 items-center overflow-hidden rounded-md absolute bottom-0 my-4 right-5 bg-neutral-800">
       <button
         className="hover:bg-neutral-700 transition-all duration-200 cursor-pointer px-3 py-2"
         onClick={() => {

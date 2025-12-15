@@ -13,6 +13,8 @@ import { useErasor } from "@/app/hooks/useErasor";
 import { useSelectedShape } from "@/app/hooks/useSelectedShape";
 import { useTextBox } from "@/app/hooks/useTextBox";
 import { v4 } from "uuid";
+import { RoomUser } from "@/app/canvas/[slug]/page";
+import CanvasInfo from "@/app/components/CanvasInfo";
 const shapes: Shape[] = [
   "select",
   "hand",
@@ -62,12 +64,15 @@ const CanvasComponent = ({
   user,
   socket,
   setExistingShapes,
+  roomUsers,
 }: {
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
   };
   existingShapes: (Content & { id?: string; tempId?: string })[];
+
+  roomUsers: RoomUser[];
   setExistingShapes: React.Dispatch<
     React.SetStateAction<
       (Content & { id?: string; tempId?: string; userId: string })[]
@@ -114,9 +119,7 @@ const CanvasComponent = ({
   const [lastTypingTime, setLastTypingTime] = useState(Date.now());
   const caretBlinkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSelectTextClick, setLastSelectTextClick] = useState(-1);
-  const { current: userAccess } = useRef(
-    localStorage.getItem("access") ?? "user"
-  );
+
   // last mouse position is used when drawing lines by pencil
   const lastMousePosition = useRef<{ x: number; y: number }>({
     x: 0,
@@ -1047,6 +1050,7 @@ const CanvasComponent = ({
         setCurrentColor={setCurrentColor}
         currentColor={currentColor}
       />
+      <CanvasInfo user={user} roomUsers={roomUsers} />
     </div>
   );
 };

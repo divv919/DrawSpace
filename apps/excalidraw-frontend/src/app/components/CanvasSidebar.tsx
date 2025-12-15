@@ -1,4 +1,5 @@
 "use client";
+
 const availableColors = ["white", "red", "green", "blue", "yellow"];
 export default function CanvasSidebar({
   currentColor,
@@ -8,7 +9,7 @@ export default function CanvasSidebar({
   setCurrentColor: (color: CanvasRenderingContext2D["strokeStyle"]) => void;
 }) {
   return (
-    <div className="absolute flex flex-col gap-3  top-0  rounded-lg bg-neutral-800 m-4 p-4">
+    <div className="absolute flex flex-col gap-3  top-0 left-0  rounded-lg bg-neutral-800 m-4 p-4">
       <div className=" font-medium text-sm text-neutral-400 uppercase ">
         Stroke Color
       </div>

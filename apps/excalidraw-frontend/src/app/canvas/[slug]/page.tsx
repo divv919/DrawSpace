@@ -7,6 +7,11 @@ import { Content } from "@/types/canvas";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+export type RoomUser = {
+  username: "string";
+  role: "user" | "admin" | "moderator";
+  isBanned: Boolean;
+};
 const checkOrGetAccess = async (
   slug: string,
   method: "GET" | "POST" = "GET",
@@ -17,6 +22,7 @@ const checkOrGetAccess = async (
     success: boolean;
     prompt_password: boolean | undefined;
     userId: string;
+    roomUsers: RoomUser[];
   }>(`/room/${slug}`, {
     method,
     body: JSON.stringify(body),
@@ -32,6 +38,7 @@ const CanvasPage = () => {
   const [pageState, setPageState] = useState<
     "promptPassword" | "accessGranted" | "unavailable" | "loading"
   >("loading");
+  const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [user, setUser] = useState<{
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
@@ -47,6 +54,7 @@ const CanvasPage = () => {
           userId: response.userId,
           access: response.access,
         });
+        setRoomUsers(response.roomUsers);
         if (response.prompt_password) {
           setPageState("promptPassword");
         } else {
@@ -99,7 +107,7 @@ const CanvasPage = () => {
   if (pageState === "accessGranted") {
     return (
       <div>
-        <CanvasComponentForWS user={user} slug={slug} />
+        <CanvasComponentForWS roomUsers={roomUsers} user={user} slug={slug} />
       </div>
     );
   }

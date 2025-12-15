@@ -196,6 +196,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       res.status(404).json({ message: "Room not found", success: false });
       return;
     }
+
     const hasAccess = await prismaClient.access.findFirst({
       where: {
         roomId: room.id,
@@ -262,6 +263,28 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       { userId: req.userId, roomId: room.id, access: access },
       JWT_SECRET
     );
+    const peopleInRoom = await prismaClient.access.findMany({
+      where: {
+        roomId: room.id,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+    if (!peopleInRoom) {
+      console.error("error fetching people info in room");
+    }
+    const roomUsers = peopleInRoom.map((ppl) => {
+      return {
+        username: ppl.user.username,
+        role: ppl.role,
+        isBanned: ppl.isBanned,
+      };
+    });
     res
       .status(200)
       .cookie("roomToken", token, {
@@ -275,6 +298,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         message: "Cookies set successfully",
         access: access,
         userId: req.userId,
+        roomUsers,
       });
   } catch (err) {
     console.error("Error getting room : ", err);
