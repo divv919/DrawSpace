@@ -190,6 +190,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
   }
   let access;
   let userId;
+  let username;
   try {
     const room = await slugToRoom(slug);
     if (!room) {
@@ -201,6 +202,13 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       where: {
         roomId: room.id,
         userId: req.userId,
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
       },
     });
     console.log("req.userId : ", req.userId);
@@ -237,6 +245,13 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
           roomId: room.id,
           role: "user",
         },
+        include: {
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
       });
       if (!response) {
         console.log("Error creating access, sending 500");
@@ -246,6 +261,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         return;
       }
       access = response.role;
+      username = response.user.username;
       userId = response.id;
     } else {
       if (hasAccess.isBanned) {
@@ -257,6 +273,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       }
       console.log("Access found, sending access");
       access = hasAccess.role;
+      username = hasAccess.user.username;
     }
 
     const token = jwt.sign(
@@ -280,6 +297,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
     }
     const roomUsers = peopleInRoom.map((ppl) => {
       return {
+        userId: ppl.userId,
         username: ppl.user.username,
         role: ppl.role,
         isBanned: ppl.isBanned,
@@ -296,8 +314,11 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       .json({
         success: true,
         message: "Cookies set successfully",
-        access: access,
-        userId: req.userId,
+        userInfo: {
+          access: access,
+          userId: req.userId,
+          username,
+        },
         roomUsers,
       });
   } catch (err) {

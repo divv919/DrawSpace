@@ -8,9 +8,11 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export type RoomUser = {
-  username: "string";
+  username: string;
   role: "user" | "admin" | "moderator";
-  isBanned: Boolean;
+  isBanned: boolean;
+  isOnline: boolean;
+  userId: string;
 };
 const checkOrGetAccess = async (
   slug: string,
@@ -18,10 +20,14 @@ const checkOrGetAccess = async (
   body?: any
 ) => {
   const response = await fetchJSON<{
-    access: "user" | "admin" | "moderator" | undefined;
+    userInfo: {
+      userId: string;
+      access: "user" | "admin" | "moderator" | undefined;
+      username: string;
+    };
     success: boolean;
     prompt_password: boolean | undefined;
-    userId: string;
+
     roomUsers: RoomUser[];
   }>(`/room/${slug}`, {
     method,
@@ -42,24 +48,33 @@ const CanvasPage = () => {
   const [user, setUser] = useState<{
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
-  }>({ userId: undefined, access: undefined });
+    username: string | undefined;
+  }>({ userId: undefined, access: undefined, username: undefined });
 
   useEffect(() => {
     async function checkAccess() {
       setPageState("loading");
       const response = await checkOrGetAccess(slug, "POST");
-
+      if (response.prompt_password) {
+        setPageState("promptPassword");
+        return;
+      }
       if (response.success) {
+        const {
+          userInfo: { access, userId, username },
+        } = response;
         setUser({
-          userId: response.userId,
-          access: response.access,
+          userId,
+          access,
+          username,
         });
-        setRoomUsers(response.roomUsers);
-        if (response.prompt_password) {
-          setPageState("promptPassword");
-        } else {
-          setPageState("accessGranted");
-        }
+        setRoomUsers(
+          response.roomUsers.map((ru) => {
+            return { ...ru, isOnline: false };
+          })
+        );
+
+        setPageState("accessGranted");
       } else {
         setPageState("unavailable");
       }
@@ -79,12 +94,7 @@ const CanvasPage = () => {
       } else {
         setPageState("accessGranted");
       }
-      console.log(
-        "response id ",
-        response.userId,
-        "user access",
-        response.access
-      );
+      console.log("userinfo  ", response.userInfo);
     } else {
       setPageState("unavailable");
     }
@@ -107,7 +117,12 @@ const CanvasPage = () => {
   if (pageState === "accessGranted") {
     return (
       <div>
-        <CanvasComponentForWS roomUsers={roomUsers} user={user} slug={slug} />
+        <CanvasComponentForWS
+          setRoomUsers={setRoomUsers}
+          roomUsers={roomUsers}
+          user={user}
+          slug={slug}
+        />
       </div>
     );
   }

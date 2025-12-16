@@ -6,6 +6,7 @@ import { prismaClient } from "@repo/db/client";
 import { uuid } from "uuidv4";
 const wss = new WebSocketServer({ port: 8080 });
 import z from "zod";
+import { Role } from "@repo/common/schema";
 type Role = "user" | "admin" | "moderator";
 
 interface User {
@@ -14,6 +15,8 @@ interface User {
   socketId: string;
   roomId: string;
   access: Role;
+  username: string;
+  isBanned: boolean;
 }
 
 const ShapeSchema = z.enum([
@@ -37,24 +40,41 @@ const CanvasMessageSchema = z.object({
   id: z.string().optional(),
 });
 
-const BanUserSchema = z.object({
+// Ban Message Schema
+const ClientBanSchema = z.object({
   channel: z.literal("room_control"),
   operation: z.literal("ban_user"),
   ban: z.boolean(),
   targetUserId: z.string(),
-  roomId: z.string(),
 });
-const ChangeRoleSchema = z.object({
+const ServerBanSchema = ClientBanSchema.extend({
+  username: z.string(),
+});
+// Initial message Schema
+const InitialMessageSchema = z.object({
+  channel: z.literal("room_control"),
+  operation: z.literal("initial"),
+  onlineUsers: z.string().array(),
+  roomName: z.string(),
+});
+// Change Role Message Schema
+const ClientChangeRoleSchema = z.object({
   channel: z.literal("room_control"),
   operation: z.literal("change_role"),
   new_role: z.enum(["user", "moderator"]),
   targetUserId: z.string(),
-  roomId: z.string(),
 });
-const RoomControlSchema = z.discriminatedUnion("operation", [
-  BanUserSchema,
-  ChangeRoleSchema,
+const ServerChangeRoleSchema = ClientChangeRoleSchema.extend({
+  username: z.string(),
+});
+
+// DiscriminatedUnion of Room controls
+const ClientRoomControlSchema = z.discriminatedUnion("operation", [
+  ClientBanSchema,
+  ClientChangeRoleSchema,
 ]);
+
+// Canvas message schema
 const ClientCreateSchema = CanvasMessageSchema.extend({
   operation: z.literal("create"),
   tempId: z.string(),
@@ -70,13 +90,15 @@ const ClientDeleteSchema = CanvasMessageSchema.extend({
   id: z.string(),
 });
 
+// Discriminated union of Canvas operation
 const CanvasOperationSchema = z.discriminatedUnion("operation", [
   ClientCreateSchema,
   ClientUpdateSchema,
   ClientDeleteSchema,
 ]);
+
 const ClientMessageSchema = z.discriminatedUnion("channel", [
-  RoomControlSchema,
+  ClientRoomControlSchema,
   CanvasOperationSchema,
 ]);
 
@@ -97,13 +119,28 @@ const ServerDeleteSchema = ClientDeleteSchema.extend({
   roomId: z.string(),
   timestamp: z.number(),
 });
-
-const ServerMessageSchema = z.discriminatedUnion("operation", [
+const ServerIsOnlineSchema = z.object({
+  operation: z.literal("is_online"),
+  channel: z.literal("room_control"),
+  isBanned: z.boolean(),
+  username: z.string(),
+  role: Role,
+  isOnline: z.boolean(),
+});
+const ServerCanvasSchema = z.discriminatedUnion("operation", [
   ServerCreateSchema,
   ServerUpdateSchema,
   ServerDeleteSchema,
 ]);
-
+const ServerRoomControlSchema = z.discriminatedUnion("operation", [
+  ServerBanSchema,
+  ServerChangeRoleSchema,
+  ServerIsOnlineSchema,
+]);
+const ServerMessageSchema = z.discriminatedUnion("channel", [
+  ServerCanvasSchema,
+  ServerRoomControlSchema,
+]);
 const DbContentSchema = CanvasMessageSchema.omit({
   id: true,
 });
@@ -159,6 +196,18 @@ wss.on("connection", async (ws, request) => {
         roomId,
       },
     },
+    include: {
+      user: {
+        select: {
+          username: true,
+        },
+      },
+      room: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
   if (!accessRecord || accessRecord.isBanned) {
     console.log("User is banned from this room");
@@ -189,19 +238,57 @@ wss.on("connection", async (ws, request) => {
     socketByUserId.delete(userId);
   }
   usersBySocket.set(socketId, {
+    username: accessRecord?.user.username ?? "",
     userId,
     ws,
     socketId,
     roomId,
     access,
+    isBanned: accessRecord?.isBanned ?? false,
   });
   socketByUserId.set(userId, socketId);
+  if (accessRecord) {
+    const userJoinBroadcast = {
+      channel: "room_control" as const,
+      operation: "is_online" as const,
+      isBanned: accessRecord.isBanned ?? false,
+      username: accessRecord.user.username ?? "",
+      isOnline: true,
+      userId: accessRecord.userId,
+      role: accessRecord.role ?? "user",
+    };
+    // broadcast everyone that user has joined
+    sendMessageToRoom(roomId, userJoinBroadcast, userId);
+  }
+
+  // send all the online user's info to this user
+  const socketsInRoom = socketByRoom.get(roomId);
+  const onlineUsersInRoom: string[] = [];
+  socketsInRoom?.forEach((socket) => {
+    const user = usersBySocket.get(socket);
+    if (user) {
+      onlineUsersInRoom.push(user.username);
+      return;
+    }
+    return;
+  });
+  const initialMessgae = {
+    onlineUsers: onlineUsersInRoom,
+    roomName: accessRecord?.room.name ?? "",
+    channel: "room_control",
+    operation: "initial",
+  };
+  const validateInitialMessage = InitialMessageSchema.safeParse(initialMessgae);
+  if (validateInitialMessage.error) {
+    ws.close(4001, "Error validating initial message");
+  }
+  ws.send(JSON.stringify(validateInitialMessage.data));
 
   ws.on("message", async (msg: Buffer) => {
     try {
       const toParseMessage = msg.toString();
       const message = JSON.parse(toParseMessage);
-
+      console.log("message is ", message);
       const validatedMessage = ClientMessageSchema.safeParse({
         ...message,
       });
@@ -214,10 +301,15 @@ wss.on("connection", async (ws, request) => {
 
       if (validatedMessage.data.channel === "room_control") {
         if (validatedMessage.data.operation === "ban_user") {
-          await handleBan(validatedMessage.data, socketId, roomId);
+          await handleBan(validatedMessage.data, socketId, roomId, userId);
         }
         if (validatedMessage.data.operation === "change_role") {
-          await handleRoleChange(validatedMessage.data, socketId, roomId);
+          await handleRoleChange(
+            validatedMessage.data,
+            socketId,
+            roomId,
+            userId
+          );
         }
       }
       if (validatedMessage.data.channel === "canvas") {
@@ -238,24 +330,56 @@ wss.on("connection", async (ws, request) => {
     }
   });
   ws.on("close", () => {
-    socketByUserId.delete(userId);
-
-    usersBySocket.delete(socketId);
-    const lastInRoom = socketByRoom.get(roomId);
-    if (!lastInRoom) {
-      console.error("Room is already empty");
-      return;
-    }
-    lastInRoom.delete(socketId);
-
-    if (lastInRoom.size === 0) {
-      socketByRoom.delete(roomId);
-    }
-
-    console.log("user id is closed ", userId);
-    console.log({ usersBySocket });
+    handleUserDisconnect(socketId, userId, roomId);
   });
 });
+function handleUserDisconnect(
+  socketId: string,
+  userId: string,
+  roomId: string
+) {
+  // Get user info before cleanup
+  const user = usersBySocket.get(socketId);
+  if (!user) {
+    // User already cleaned up or never fully connected
+    console.log(
+      "User not found in usersBySocket, skipping disconnect broadcast"
+    );
+    return;
+  }
+
+  // Check if there are other users in the room before broadcasting
+  const socketsInRoom = socketByRoom.get(roomId);
+  const hasOtherUsers = socketsInRoom && socketsInRoom.size > 1;
+
+  // Broadcast disconnect only if there are other users in the room
+  if (hasOtherUsers) {
+    const userDisconnectBroadcast: z.infer<typeof ServerIsOnlineSchema> = {
+      channel: "room_control",
+      operation: "is_online",
+      isBanned: user.isBanned,
+      username: user.username,
+      isOnline: false,
+      role: user.access,
+    };
+    sendMessageToRoom(roomId, userDisconnectBroadcast, userId);
+  }
+
+  // Clean up resources
+  socketByUserId.delete(userId);
+  usersBySocket.delete(socketId);
+
+  if (socketsInRoom) {
+    socketsInRoom.delete(socketId);
+    if (socketsInRoom.size === 0) {
+      socketByRoom.delete(roomId);
+    }
+  }
+
+  console.log(
+    `User ${user.username} (${userId}) disconnected from room ${roomId}`
+  );
+}
 
 function sendMessageToRoom(
   roomId: string,
@@ -269,6 +393,7 @@ function sendMessageToRoom(
     console.log("no sockets found , returnign");
     return;
   }
+  console.log("inclusive is ", inclusive);
   sockets.forEach((socketId) => {
     console.log("sending message to", usersBySocket.get(socketId)?.userId);
     const user = usersBySocket.get(socketId);
@@ -280,6 +405,9 @@ function sendMessageToRoom(
     }
     const sameUser = user.userId === userId;
     if (inclusive || !sameUser) {
+      if (sameUser) {
+        console.log("Also sent to same user inclusive");
+      }
       user.ws.send(JSON.stringify(message));
     }
   });
@@ -428,9 +556,10 @@ const checkUserPermission = async (
 };
 
 const handleBan = async (
-  message: z.infer<typeof BanUserSchema>,
+  message: z.infer<typeof ClientBanSchema>,
   socketId: string,
-  roomId: string
+  roomId: string,
+  userId: string
 ) => {
   const isAdmin = await checkUserPermission(socketId, roomId, ["admin"]);
   if (!isAdmin) {
@@ -445,11 +574,22 @@ const handleBan = async (
       },
     },
     data: { isBanned: message.ban },
+    include: {
+      user: {
+        select: {
+          username: true,
+        },
+      },
+    },
   });
+
   if (!response) {
     console.log("Error updating value at DB level");
     return;
   }
+
+  const formatBroadcast = { ...message, username: response.user.username };
+  sendMessageToRoom(roomId, formatBroadcast, userId, true);
   const targetUserSocketId = socketByUserId.get(message.targetUserId);
   if (!targetUserSocketId) {
     console.log("User is currently not active");
@@ -460,28 +600,33 @@ const handleBan = async (
     console.log("cannot find user by socket id");
     return;
   }
-  targetUser.ws.send(JSON.stringify(message));
   targetUser.ws.close(4003, "You are banned");
 };
 
 const handleRoleChange = async (
-  message: z.infer<typeof ChangeRoleSchema>,
+  message: z.infer<typeof ClientChangeRoleSchema>,
   socketId: string,
-  roomId: string
+  roomId: string,
+  userId: string
 ) => {
   const isAdmin = await checkUserPermission(socketId, roomId, ["admin"]);
   if (!isAdmin) {
     console.log("User does not have rights to modify role of someone");
     return;
   }
-  if (message.roomId !== roomId) {
-    console.log("Error because of mismatched room IDs");
-  }
+
   const response = await prismaClient.access.update({
     where: {
       userId_roomId: {
         userId: message.targetUserId,
         roomId,
+      },
+    },
+    include: {
+      user: {
+        select: {
+          username: true,
+        },
       },
     },
     data: { role: message.new_role },
@@ -490,6 +635,8 @@ const handleRoleChange = async (
     console.log("Error updating value at DB level");
     return;
   }
+  const formatBroadcast = { ...message, username: response.user.username };
+  sendMessageToRoom(roomId, formatBroadcast, userId, true);
   const targetUserSocketId = socketByUserId.get(message.targetUserId);
 
   if (!targetUserSocketId) {
@@ -501,6 +648,7 @@ const handleRoleChange = async (
     console.log("cannot find user by socket id");
     return;
   }
+
   targetUser.access = message.new_role;
   targetUser.ws.send(JSON.stringify(message));
   targetUser.ws.close(4003, "Roles changed please rejoin");

@@ -10,16 +10,19 @@ import {
   UserCog,
 } from "lucide-react";
 import { RoomUser } from "../canvas/[slug]/page";
-import { useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
 
 export default function CanvasInfo({
+  socket,
   user,
   roomUsers,
 }: {
+  socket: WebSocket;
   roomUsers: RoomUser[];
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
+    username: string | undefined;
   };
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,44 +30,66 @@ export default function CanvasInfo({
   const currentUserRole = user.access;
   const isAdmin = currentUserRole === "admin";
 
-  // For now we only know the current user's role, not their username from this prop,
-  // so we treat "current user" as the one matching the role + not banned, if found.
   const { currentUser, otherUsers } = useMemo(() => {
-    if (!roomUsers?.length) {
-      return {
-        currentUser: null as RoomUser | null,
-        otherUsers: [] as RoomUser[],
-      };
-    }
-
-    let current: RoomUser | null = null;
-    const others: RoomUser[] = [];
-
-    for (const ru of roomUsers) {
-      if (!current && currentUserRole && ru.role === currentUserRole) {
-        current = ru;
-      } else {
-        others.push(ru);
-      }
-    }
-
-    return { currentUser: current, otherUsers: others };
-  }, [roomUsers, currentUserRole]);
+    const currentUser = {
+      username: user.username,
+      role: user.access,
+      isBanned: false,
+      isOnline: true,
+    };
+    const others = roomUsers
+      .filter((userInfo) => {
+        return userInfo.username !== currentUser.username;
+      })
+      .sort((a, b) => {
+        if (a.isOnline !== b.isOnline) {
+          return a.isOnline ? -1 : 1;
+        }
+        if (a.role !== b.role) {
+          return a.role.localeCompare(b.role);
+        }
+        return a.username.localeCompare(b.username);
+      });
+    return { otherUsers: others, currentUser };
+  }, [roomUsers, user]);
 
   // Placeholder functions for admin actions
-  const handleBanUser = (username: string) => {
-    console.log("Ban user:", username);
-    // TODO: Implement ban logic
+  const handleBanUser = (userId: string) => {
+    console.log("Ban user:", userId);
+
+    socket.send(
+      JSON.stringify({
+        channel: "room_control",
+        operation: "ban_user",
+        ban: true,
+        targetUserId: userId,
+      })
+    );
   };
 
-  const handleUnbanUser = (username: string) => {
-    console.log("Unban user:", username);
-    // TODO: Implement unban logic
+  const handleUnbanUser = (userId: string) => {
+    console.log("Ban user:", userId);
+
+    socket.send(
+      JSON.stringify({
+        channel: "room_control",
+        operation: "ban_user",
+        ban: false,
+        targetUserId: userId,
+      })
+    );
   };
 
-  const handlePromoteToModerator = (username: string) => {
-    console.log("Promote to moderator:", username);
-    // TODO: Implement role change logic
+  const handleChangeRole = (userId: string, role: "user" | "moderator") => {
+    console.log("Promote to moderator:", userId);
+    socket.send(
+      JSON.stringify({
+        channel: "room_control",
+        operation: "change_role",
+        new_role: role,
+        targetUserId: userId,
+      })
+    );
   };
 
   const renderRoleBadge = (role: RoomUser["role"]) => {
@@ -188,7 +213,9 @@ export default function CanvasInfo({
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-xs relative font-medium text-neutral-400 uppercase bg-neutral-700 rounded-full p-3 flex items-center justify-center">
                         <User2 size={25} />
-                        <div className="size-[14px] rounded-full p-[4px] absolute bg-green-500 top-0 left-0">
+                        <div
+                          className={`size-[14px] rounded-full p-[4px] absolute  top-0 left-0 ${u.isOnline ? "bg-green-500" : "bg-neutral-500"}`}
+                        >
                           <div className="w-full h-full rounded-full bg-neutral-700"></div>
                         </div>
                       </div>
@@ -207,7 +234,7 @@ export default function CanvasInfo({
                         <div className="flex flex-col gap-1">
                           {u.isBanned ? (
                             <button
-                              onClick={() => handleUnbanUser(u.username)}
+                              onClick={() => handleUnbanUser(u.userId)}
                               className="text-xs px-2 py-1 rounded-md bg-green-500/20 text-green-300 hover:bg-green-500/30 transition-colors"
                               title="Unban user"
                             >
@@ -215,7 +242,7 @@ export default function CanvasInfo({
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleBanUser(u.username)}
+                              onClick={() => handleBanUser(u.userId)}
                               className=" flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
                               title="Ban user"
                             >
@@ -223,16 +250,35 @@ export default function CanvasInfo({
                               Ban
                             </button>
                           )}
-                          {u.role === "user" && (
+                          {u.role === "user" ? (
                             <button
-                              onClick={() =>
-                                handlePromoteToModerator(u.username)
-                              }
+                              onClick={() => {
+                                handleChangeRole(
+                                  u.userId,
+                                  u.role === "moderator" ? "user" : "moderator"
+                                );
+                                setIsOpen(false);
+                              }}
                               className="text-xs px-2 py-1 rounded-md bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors flex items-center gap-1"
                               title="Promote to moderator"
                             >
                               <UserCog size={12} />
                               Mod
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                handleChangeRole(
+                                  u.userId,
+                                  u.role === "moderator" ? "user" : "moderator"
+                                );
+                                setIsOpen(false);
+                              }}
+                              className="text-xs px-2 py-1 rounded-md bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition-colors flex items-center gap-1"
+                              title="Promote to moderator"
+                            >
+                              {/* <UserCog size={12} /> */}
+                              Demote
                             </button>
                           )}
                         </div>

@@ -6,36 +6,85 @@ import { WEBSOCKET_URL } from "@/config/variables";
 import { Content } from "@/types/canvas";
 import { fetchJSON } from "@/app/api/rooms";
 import { RoomUser } from "@/app/canvas/[slug]/page";
+import { OctagonAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type CreateMessage = Content & {
+  channel: "canvas";
   tempId?: string;
   operation: "create";
   id: string;
 };
 
 type UpdateMessage = Content & {
+  channel: "canvas";
+
   tempId?: string;
   operation: "update";
   id: string;
 };
 type DeleteMessage = Content & {
+  channel: "canvas";
+
   tempId?: string;
   operation: "delete";
   id: string;
 };
-type WSMessage = UpdateMessage | DeleteMessage | CreateMessage;
+type BanMessage = {
+  channel: "room_control";
+  operation: "ban_user";
+  ban: boolean;
+  targetUserId: string;
+  roomId: string;
+  username: string;
+};
+type IsOnlineMessage = {
+  channel: "room_control";
+  operation: "is_online";
+  isBanned: boolean;
+  username: string;
+  role: "user" | "admin" | "moderator";
+  isOnline: boolean;
+  userId: string;
+};
+type ChangeRoleMessage = {
+  channel: "room_control";
+  operation: "change_role";
+  new_role: "user" | "admin" | "moderator";
+  targetUserId: string;
+  roomId: string;
+  username: string;
+};
+type InitialMessage = {
+  channel: "room_control";
+  operation: "initial";
+  onlineUsers: string[];
+  roomName: string;
+};
+type RoomControlMessage =
+  | BanMessage
+  | IsOnlineMessage
+  | ChangeRoleMessage
+  | InitialMessage;
+type CanvasMessage = UpdateMessage | DeleteMessage | CreateMessage;
+type WSMessage = CanvasMessage | RoomControlMessage;
+
 function CanvasComponentForWS({
   slug,
   user,
   roomUsers,
+  setRoomUsers,
 }: {
   slug: string;
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
+    username: string | undefined;
   };
   roomUsers: RoomUser[];
+  setRoomUsers: React.Dispatch<React.SetStateAction<RoomUser[]>>;
 }) {
+  const router = useRouter();
   const [socketConnection, setSocketConnection] = useState<WebSocket | null>(
     null
   );
@@ -43,6 +92,7 @@ function CanvasComponentForWS({
     (Content & { id?: string; tempId?: string })[]
   >([]);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [isDisconnected, setIsDisconnected] = useState(false);
   const handleCreateOperation = (
     message: Content & {
       tempId?: string;
@@ -100,6 +150,80 @@ function CanvasComponentForWS({
   ) => {
     setExistingShapes((prev) => prev.filter((val) => val.id !== message.id));
   };
+  const handleBanUserOperation = (message: BanMessage) => {
+    if (message.targetUserId === user.userId) {
+      setIsDisconnected(true);
+      return;
+    }
+
+    setRoomUsers((prev) =>
+      prev.map((user) => {
+        if (user.username === message.username) {
+          return {
+            ...user,
+            isBanned: message.ban,
+          };
+        }
+        return user;
+      })
+    );
+  };
+  const handleChangeRoleOperation = (message: ChangeRoleMessage) => {
+    if (message.targetUserId === user.userId) {
+      setIsDisconnected(true);
+      return;
+    }
+    console.log("old users are ", roomUsers);
+
+    setRoomUsers((prev) =>
+      prev.map((user) => {
+        if (user.username === message.username) {
+          return {
+            ...user,
+            role: message.new_role,
+          };
+        }
+        return user;
+      })
+    );
+  };
+  const handleInitialOperation = (message: InitialMessage) => {
+    setRoomUsers((prev) =>
+      prev.map((user) => {
+        if (message.onlineUsers.includes(user.username)) {
+          return {
+            ...user,
+            isOnline: true,
+          };
+        }
+        return user;
+      })
+    );
+  };
+  const handleIsOnlineOperation = (message: IsOnlineMessage) => {
+    setRoomUsers((prev) => {
+      const exists = prev.some((user) => user.userId === message.userId);
+      if (!exists) {
+        const newUser: RoomUser = {
+          isBanned: message.isBanned,
+          isOnline: message.isOnline,
+          username: message.username,
+          role: message.role,
+          userId: message.userId,
+        };
+        return [...prev, newUser];
+      }
+      return prev.map((user) => {
+        if (user.username === message.username) {
+          return {
+            ...user,
+            isOnline: message.isOnline,
+          };
+        }
+        return user;
+      });
+    });
+  };
   useEffect(() => {
     console.log("slug : ", slug);
     async function getPreviousMessages() {
@@ -137,17 +261,46 @@ function CanvasComponentForWS({
     socket.onmessage = (e: MessageEvent) => {
       const parsed = JSON.parse(e.data) as WSMessage;
       console.log("parsed message ", parsed);
-      switch (parsed.operation) {
-        case "create":
-          handleCreateOperation(parsed);
+      switch (parsed.channel) {
+        case "room_control":
+          switch (parsed.operation) {
+            case "ban_user":
+              handleBanUserOperation(parsed);
+              break;
+            case "change_role":
+              handleChangeRoleOperation(parsed);
+              break;
+            case "is_online":
+              handleIsOnlineOperation(parsed);
+              break;
+            case "initial":
+              handleInitialOperation(parsed);
+              break;
+          }
           break;
-        case "update":
-          handleUpdateOperation(parsed);
+        case "canvas":
+          switch (parsed.operation) {
+            case "create":
+              handleCreateOperation(parsed);
+              break;
+            case "update":
+              handleUpdateOperation(parsed);
+              break;
+            case "delete":
+              handleDeleteOperation(parsed);
+              break;
+          }
           break;
-        case "delete":
-          handleDeleteOperation(parsed);
+        default:
           break;
       }
+    };
+    socket.onclose = () => {
+      setIsDisconnected(true);
+      setSocketConnection(null);
+      setRoomUsers([]);
+      setExistingShapes([]);
+      setMessagesLoaded(false);
     };
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
@@ -163,13 +316,43 @@ function CanvasComponentForWS({
     return <div>Connecting to ws</div>;
   }
   return (
-    <CanvasComponent
-      roomUsers={roomUsers}
-      user={user}
-      existingShapes={existingShapes}
-      socket={socketConnection}
-      setExistingShapes={setExistingShapes}
-    />
+    <div className="relative h-screen w-screen">
+      {isDisconnected && (
+        <div className="w-full h-full z-100 absolute bg-black/60 top-0 flex items-center justify-center">
+          <div className="w-fit max-w-[290px] h-fit bg-neutral-800 rounded-md flex flex-col gap-3 p-4">
+            <div className="flex text-white text-lg font-bold gap-2 items-center">
+              <OctagonAlert size={20} className="pb-[1px]" /> Disconnected From
+              Server
+            </div>
+            <div className="text-neutral-300 font-light">
+              You have been disconnected from the server.
+            </div>
+            <div className="flex justify-end gap-3 mt-5 ">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="cursor-pointer hover:bg-neutral-700 transition-all duration-100 bg-neutral-600 text-white px-3 py-1 text-sm rounded-md"
+              >
+                Home
+              </button>
+
+              <button
+                onClick={() => window.location.reload()}
+                className="cursor-pointer hover:bg-neutral-200 transition-all duration-100 px-3 py-1 text-sm bg-neutral-100 text-neutral-900 rounded-md"
+              >
+                Reconnect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <CanvasComponent
+        roomUsers={roomUsers}
+        user={user}
+        existingShapes={existingShapes}
+        socket={socketConnection}
+        setExistingShapes={setExistingShapes}
+      />
+    </div>
   );
 }
 

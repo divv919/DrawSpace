@@ -69,6 +69,7 @@ const CanvasComponent = ({
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
+    username: string | undefined;
   };
   existingShapes: (Content & { id?: string; tempId?: string })[];
 
@@ -1014,7 +1015,7 @@ const CanvasComponent = ({
   };
 
   return (
-    <div className="h-screen w-screen  scrollbar-none relative">
+    <div className="h-full w-full  scrollbar-none relative">
       <canvas
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -1050,7 +1051,7 @@ const CanvasComponent = ({
         setCurrentColor={setCurrentColor}
         currentColor={currentColor}
       />
-      <CanvasInfo user={user} roomUsers={roomUsers} />
+      <CanvasInfo user={user} roomUsers={roomUsers} socket={socket} />
     </div>
   );
 };
