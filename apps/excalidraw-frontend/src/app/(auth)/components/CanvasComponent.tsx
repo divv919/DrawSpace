@@ -15,6 +15,7 @@ import { useTextBox } from "@/app/hooks/useTextBox";
 import { v4 } from "uuid";
 import { RoomUser } from "@/app/canvas/[slug]/page";
 import CanvasInfo from "@/app/components/CanvasInfo";
+import { useToast } from "@/app/hooks/useToast";
 const shapes: Shape[] = [
   "select",
   "hand",
@@ -180,7 +181,7 @@ const CanvasComponent = ({
   // this acts like a viewport for the user
   const camera = useRef<Camera | null>(null);
   // for testing logs - todel
-
+  const { showToast } = useToast();
   useEffect(() => {
     if (camera.current === null) {
       camera.current = createCamera(0, 0, 1);
@@ -258,7 +259,11 @@ const CanvasComponent = ({
       return;
     }
     if (selectedShape.userId !== user.userId && user.access === "user") {
-      alert("cannot change property of others");
+      showToast({
+        type: "error",
+        title: "Permission Denied",
+        message: "You do not have permission to change the color of this shape",
+      });
       setCurrentColor(selectedShape.color);
       return;
     }
@@ -427,10 +432,12 @@ const CanvasComponent = ({
           user.access
         );
         if (selectedShape.userId !== user.userId && user.access === "user") {
-          alert("not allowed to delete items drawn by other people");
-
+          showToast({
+            type: "error",
+            title: "Permission Denied",
+            message: "You do not have permission to delete this shape",
+          });
           return;
-          //prompt not allowed
         }
         const updated = existingShapes.filter(
           (_, index) => selectedShapeIndex !== index

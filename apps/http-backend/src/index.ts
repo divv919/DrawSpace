@@ -260,6 +260,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
           .json({ success: false, message: "Internal server error" });
         return;
       }
+      console.log("response after creating access is ", response);
       access = response.role;
       username = response.user.username;
       userId = response.id;
@@ -303,6 +304,16 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         isBanned: ppl.isBanned,
       };
     });
+    console.log("to be sent to user ", {
+      success: true,
+      message: "Cookies set successfully",
+      userInfo: {
+        access: access,
+        userId: req.userId,
+        username,
+      },
+      roomUsers,
+    });
     res
       .status(200)
       .cookie("roomToken", token, {
@@ -327,23 +338,35 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
     return;
   }
 });
-app.get("/getRooms", async (req, res) => {
+app.get("/getRooms", authMiddleware, async (req, res) => {
   try {
-    const rooms = await prismaClient.room.findMany({
+    const rooms = await prismaClient.access.findMany({
       where: {
-        adminId: req.userId,
+        userId: req.userId,
       },
       include: {
-        accesses: true,
+        room: {
+          omit: {
+            password: true,
+          },
+        },
       },
     });
+    console.log("rooms for user are ", rooms);
     if (!rooms) {
       res.status(404).json({ message: "No rooms found", success: false });
       return;
     }
+    const formattedRooms = rooms.map((room) => {
+      return room.room;
+    });
     res
       .status(200)
-      .json({ rooms, success: true, message: "Rooms fetched successfully" });
+      .json({
+        rooms: formattedRooms,
+        success: true,
+        message: "Rooms fetched successfully",
+      });
   } catch (err) {
     console.log("Error getting all rooms : ", err);
     res.status(500).json({ success: false, message: "Internal server error" });

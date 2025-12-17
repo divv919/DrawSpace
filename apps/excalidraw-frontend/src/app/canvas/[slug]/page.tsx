@@ -2,9 +2,16 @@
 import CanvasComponentForWS from "@/app/(auth)/components/CanvasComponentForWS";
 import CanvasComponent from "@/app/(auth)/components/CanvasComponentForWS";
 import { fetchJSON } from "@/app/api/rooms";
+import { Button } from "@/app/components/ui/Button";
+import Dialog, {
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+} from "@/app/components/ui/Dialog";
 import { BACKEND_BASE_URL } from "@/config/variables";
 import { Content } from "@/types/canvas";
-import { useParams } from "next/navigation";
+import { OctagonAlert } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export type RoomUser = {
@@ -50,35 +57,46 @@ const CanvasPage = () => {
     access: "user" | "admin" | "moderator" | undefined;
     username: string | undefined;
   }>({ userId: undefined, access: undefined, username: undefined });
-
+  const router = useRouter();
   useEffect(() => {
     async function checkAccess() {
-      setPageState("loading");
-      const response = await checkOrGetAccess(slug, "POST");
-      if (response.prompt_password) {
-        setPageState("promptPassword");
-        return;
-      }
-      if (response.success) {
-        const {
-          userInfo: { access, userId, username },
-        } = response;
-        setUser({
-          userId,
-          access,
-          username,
-        });
-        setRoomUsers(
-          response.roomUsers.map((ru) => {
-            return { ...ru, isOnline: false };
-          })
-        );
+      try {
+        setPageState("loading");
+        const response = await checkOrGetAccess(slug, "POST");
+        if (response.prompt_password) {
+          setPageState("promptPassword");
+          return;
+        }
 
-        setPageState("accessGranted");
-      } else {
+        if (response.success) {
+          const {
+            userInfo: { access, userId, username },
+          } = response;
+          console.log("user info is ", {
+            userId,
+            access,
+            username,
+          });
+          setUser({
+            userId,
+            access,
+            username,
+          });
+
+          setRoomUsers(
+            response.roomUsers.map((ru) => {
+              return { ...ru, isOnline: false };
+            })
+          );
+
+          setPageState("accessGranted");
+        } else {
+          setPageState("unavailable");
+        }
+        setPassword("");
+      } catch (err) {
         setPageState("unavailable");
       }
-      setPassword("");
     }
     checkAccess();
   }, [slug]);
@@ -92,6 +110,15 @@ const CanvasPage = () => {
       if (response.prompt_password) {
         setPageState("promptPassword");
       } else {
+        const {
+          userInfo: { access, userId, username },
+        } = response;
+        setUser({ access, userId, username });
+        setRoomUsers(
+          response.roomUsers.map((ru) => {
+            return { ...ru, isOnline: false };
+          })
+        );
         setPageState("accessGranted");
       }
       console.log("userinfo  ", response.userInfo);
@@ -102,18 +129,47 @@ const CanvasPage = () => {
 
   if (pageState === "promptPassword") {
     return (
-      <div>
-        <h1>Prompt Password</h1>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button onClick={handleSubmitPassword}>Submit</button>
+      <div className="w-screen h-screen flex flex-col items-center justify-center">
+        <Dialog>
+          <DialogTitle>This Room Is Protected</DialogTitle>
+          <DialogContent>
+            Enter the password to join the room.
+            <input
+              type="password"
+              className="bg-neutral-700 text-white px-3 py-[6px] text-sm rounded-md focus:outline-none w-full"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/dashboard")}
+            >
+              Go Back
+            </Button>
+            <Button variant="primary" onClick={handleSubmitPassword}>
+              Submit
+            </Button>
+          </DialogActions>
+        </Dialog>
       </div>
     );
   }
+  //   <button
+  //   onClick={() => router.push("/dashboard")}
+  //   className="cursor-pointer hover:bg-neutral-700 transition-all duration-100 bg-neutral-600 text-white px-3 py-1 text-sm rounded-md"
+  // >
+  //   Go Back
+  // </button>
+
+  // <button
+  //   onClick={handleSubmitPassword}
+  //   className="cursor-pointer hover:bg-neutral-200 transition-all duration-100 px-3 py-1 text-sm bg-neutral-100 text-neutral-900 rounded-md"
+  // >
+  //   Submit
+  // </button>
   if (pageState === "accessGranted") {
     return (
       <div>
@@ -136,8 +192,9 @@ const CanvasPage = () => {
   }
 
   return (
-    <div>
-      <h1>Unavailable</h1>
+    <div className="flex flex-col items-center justify-center gap-8 pb-12 h-screen w-screen">
+      <UnavailableSVG />
+      <div className="text-2xl font-medium">This Room Is Unavailable</div>
     </div>
   );
   // const prevMessages = await getPreviousMessages(params.slug);
@@ -152,3 +209,198 @@ const CanvasPage = () => {
   // );
 };
 export default CanvasPage;
+
+const UnavailableSVG = () => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      width="400"
+      height="200.493"
+      viewBox="0 0 800 430.493"
+      role="img"
+    >
+      <g transform="translate(-368.866 -254.661)">
+        <ellipse
+          cx="149.199"
+          cy="26.107"
+          rx="149.199"
+          ry="26.107"
+          transform="translate(368.866 481.453)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <ellipse
+          cx="191.906"
+          cy="26.107"
+          rx="191.906"
+          ry="26.107"
+          transform="translate(785.054 632.939)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <path
+          d="M527.508,703.017a139.876,139.876,0,0,1-34.251-3.807l1.007-3.942c61.693,15.766,176.375-20.484,188.785-59.673l3.879,1.228C676.145,670.877,591.731,703.017,527.508,703.017Z"
+          transform="translate(229.585 -61.587)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <path
+          d="M422.29,529.663c-14.453-3.693-21.922-7.965-24.218-13.849-2.856-7.316,2.5-15.561,9.919-26.972,11.315-17.409,26.811-41.252,24.3-77.646-1.418-20.568-8.78-35.7-21.879-44.978-26.656-18.878-68.707-7.567-69.129-7.451l-1.085-3.921c1.8-.5,44.3-11.949,72.551,8.041,14.153,10.017,22.094,26.176,23.6,48.028,2.6,37.751-13.977,63.262-24.949,80.143-6.756,10.394-11.637,17.9-9.54,23.275,1.748,4.477,8.559,8.1,21.436,11.386Z"
+          transform="translate(278.852 29.977)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <path
+          d="M816.039,661.123,795.384,696.05s-26.3,13.971-7.807,14.382,105.6,0,105.6,0,16.847,0-9.862-14.793l-19.389-37.478Z"
+          transform="translate(136.968 -68.851)"
+          fill="#e6e6e6"
+        />
+        <rect
+          width="348.044"
+          height="242.439"
+          rx="18.046"
+          transform="translate(801.887 355.38)"
+          fill="#e6e6e6"
+        />
+        <path
+          d="M2.712,0h319.2a2.712,2.712,0,0,1,2.712,2.712V193.294a2.712,2.712,0,0,1-2.712,2.712H2.712A2.712,2.712,0,0,1,0,193.294V2.712A2.712,2.712,0,0,1,2.712,0Z"
+          transform="translate(813.598 368.323)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="2.055"
+          cy="2.055"
+          r="2.055"
+          transform="translate(973.854 360.516)"
+          fill="#f2f2f2"
+        />
+        <path
+          d="M957.868,621.322v21.252a12.236,12.236,0,0,1-12.239,12.237H622.061a12.236,12.236,0,0,1-12.237-12.239V621.322Z"
+          transform="translate(192.063 -56.993)"
+          fill="#e6e6e6"
+        />
+        <path
+          d="M864.04,660.444v4.109H642.968v-3.288l.3-.822,5.449-14.793h210.8Z"
+          transform="translate(202.681 3.326)"
+          fill="#f2f2f2"
+        />
+        <path
+          d="M1096.367,755.317c-.4,1.722-1.923,3.538-5.358,5.256-12.327,6.164-37.393-1.644-37.393-1.644s-19.313-3.287-19.313-11.917a15.428,15.428,0,0,1,1.693-1.007c5.183-2.742,22.367-9.508,52.837.286a12.709,12.709,0,0,1,5.792,3.8C1095.859,751.534,1096.828,753.367,1096.367,755.317Z"
+          transform="translate(55.429 -95.57)"
+          fill="#f2f2f2"
+        />
+        <path
+          d="M1097.171,755.317c-15.089,5.782-28.538,6.213-42.34-3.374-6.961-4.832-13.285-6.028-18.031-5.938,5.183-2.742,22.367-9.508,52.837.286a12.708,12.708,0,0,1,5.792,3.8C1096.663,751.534,1097.631,753.367,1097.171,755.317Z"
+          transform="translate(54.626 -95.57)"
+          fill="#e6e6e6"
+        />
+        <path
+          d="M864.04,667.466v4.109H642.968v-3.288l.3-.822Z"
+          transform="translate(202.681 -3.696)"
+          opacity="0.1"
+        />
+        <path
+          d="M794.285,488.635H592.452a6.086,6.086,0,0,1-6.079-6.079V414.467a6.086,6.086,0,0,1,6.079-6.079H794.285a6.086,6.086,0,0,1,6.079,6.079v68.088A6.086,6.086,0,0,1,794.285,488.635Z"
+          transform="translate(-181.314 -153.727)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <rect
+          width="53.498"
+          height="6.079"
+          transform="translate(436.671 272.899)"
+          fill="#f2f2f2"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(557.041 272.899)"
+          fill="#f2f2f2"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(569.2 272.899)"
+          fill="#f2f2f2"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(581.358 272.899)"
+          fill="#f2f2f2"
+        />
+        <path
+          d="M794.285,601.689H592.452a6.087,6.087,0,0,1-6.079-6.079V527.521a6.086,6.086,0,0,1,6.079-6.079H794.285a6.086,6.086,0,0,1,6.079,6.079v68.088A6.086,6.086,0,0,1,794.285,601.689Z"
+          transform="translate(-181.314 -180.455)"
+          fill="#e6e6e6"
+        />
+        <rect
+          width="53.498"
+          height="6.079"
+          transform="translate(436.671 359.225)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(557.041 359.225)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(569.2 359.225)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(581.358 359.225)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <path
+          d="M794.285,714.743H592.452a6.087,6.087,0,0,1-6.079-6.079V640.575a6.086,6.086,0,0,1,6.079-6.079H794.285a6.086,6.086,0,0,1,6.079,6.079v68.089A6.086,6.086,0,0,1,794.285,714.743Z"
+          transform="translate(-181.314 -207.183)"
+          fill="#e6e6e6"
+        />
+        <rect
+          width="53.498"
+          height="6.079"
+          transform="translate(436.671 445.552)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(557.041 445.552)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(569.2 445.552)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <circle
+          cx="3.648"
+          cy="3.648"
+          r="3.648"
+          transform="translate(581.358 445.552)"
+          fill="oklch(26.9% 0 0)"
+        />
+        <g transform="translate(933.489 421.851)">
+          <path d="M0,0H88.949V88.949H0Z" fill="none" />
+          <path
+            d="M39.062,2A37.062,37.062,0,0,1,76.125,39.062a37.06,37.06,0,1,1-74.11,1.2L2,39.062l.015-1.038A37.061,37.061,0,0,1,39.062,2ZM39.1,50.181l-.471.026a3.706,3.706,0,0,0,0,7.361l.434.026.471-.026a3.706,3.706,0,0,0,0-7.361Zm-.037-32.362a3.706,3.706,0,0,0-3.68,3.272l-.026.434v20.25l.026.434a3.706,3.706,0,0,0,7.361,0l.026-.434V21.525l-.026-.434A3.706,3.706,0,0,0,39.062,17.819Z"
+            transform="translate(5.412 5.412)"
+            fill="#f2f2f2"
+          />
+        </g>
+      </g>
+    </svg>
+  );
+};

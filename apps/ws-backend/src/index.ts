@@ -126,6 +126,7 @@ const ServerIsOnlineSchema = z.object({
   username: z.string(),
   role: Role,
   isOnline: z.boolean(),
+  userId: z.string(),
 });
 const ServerCanvasSchema = z.discriminatedUnion("operation", [
   ServerCreateSchema,
@@ -272,13 +273,13 @@ wss.on("connection", async (ws, request) => {
     }
     return;
   });
-  const initialMessgae = {
+  const initialMessage = {
     onlineUsers: onlineUsersInRoom,
     roomName: accessRecord?.room.name ?? "",
     channel: "room_control",
     operation: "initial",
   };
-  const validateInitialMessage = InitialMessageSchema.safeParse(initialMessgae);
+  const validateInitialMessage = InitialMessageSchema.safeParse(initialMessage);
   if (validateInitialMessage.error) {
     ws.close(4001, "Error validating initial message");
   }
@@ -361,6 +362,7 @@ function handleUserDisconnect(
       username: user.username,
       isOnline: false,
       role: user.access,
+      userId: user.userId,
     };
     sendMessageToRoom(roomId, userDisconnectBroadcast, userId);
   }

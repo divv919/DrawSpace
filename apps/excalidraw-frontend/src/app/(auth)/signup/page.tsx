@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/hooks/useAuth";
 import { SignupRequest, SignupResponse } from "@/types/auth";
+import { useToast } from "@/app/hooks/useToast";
 export default function Signup() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -12,7 +13,7 @@ export default function Signup() {
     username: "",
     password: "",
   });
-
+  const { showToast } = useToast();
   const { signup, populateUser } = useAuth();
   const mutation = useMutation<SignupResponse, Error, SignupRequest>({
     mutationFn: signup,
@@ -20,7 +21,12 @@ export default function Signup() {
       populateUser(data?.user);
       console.log("Signup Successful");
       router.push("/signin");
-      //TODO: toast
+      showToast({
+        title: "Signup Successful",
+        message:
+          "You are now signed up to your account, please sign in to continue",
+        type: "success",
+      });
     },
     onError: (error) => {
       console.log(error);

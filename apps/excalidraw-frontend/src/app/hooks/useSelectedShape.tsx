@@ -4,6 +4,7 @@ import { Content } from "@/types/canvas";
 import React, { SetStateAction, useState } from "react";
 import { Camera } from "../lib/camera";
 import { Canvas } from "../lib/draw";
+import { useToast } from "./useToast";
 
 export function useSelectedShape({
   existingShapes,
@@ -35,6 +36,7 @@ export function useSelectedShape({
     | "bottom"
     | undefined
   >(undefined);
+  const { showToast } = useToast();
   const handleObjectMove = (
     camera: Camera,
     e: React.MouseEvent,
@@ -49,7 +51,11 @@ export function useSelectedShape({
     // add logic for moving object
     const selectedShape = existingShapes[selectedShapeIndex];
     if (selectedShape.userId !== user.userId && user.access === "user") {
-      alert("cannot move object");
+      showToast({
+        type: "error",
+        message: "You do not have permission to move this shape",
+        title: "Permission Denied",
+      });
 
       setIsMovingObject(false);
       // setSelectedShapeIndex(-1);
@@ -123,7 +129,11 @@ export function useSelectedShape({
       setIsResizingObject(false);
       // setSelectedShapeIndex(-1);
       setHandle(undefined);
-      alert("cannot resize other's shape");
+      showToast({
+        type: "error",
+        title: "Permission Denied",
+        message: "You do not have permission to resize this shape",
+      });
       return;
     }
     let updatedShape: Content;

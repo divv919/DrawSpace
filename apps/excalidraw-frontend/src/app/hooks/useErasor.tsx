@@ -3,6 +3,7 @@ import { Content } from "@/types/canvas";
 import type { Canvas } from "../lib/draw";
 import React, { SetStateAction, useState } from "react";
 import type { Camera } from "../lib/camera";
+import { useToast } from "./useToast";
 export function useErasor({
   canvas,
   existingShapes,
@@ -17,7 +18,7 @@ export function useErasor({
 }) {
   const [isErasing, setIsErasing] = useState(false);
   const [erasedShapesIndexes, setErasedShapesIndexes] = useState<number[]>([]);
-
+  const { showToast } = useToast();
   const captureErasingShapes = (
     camera: Camera,
     selectedShapeIndex: number,
@@ -63,7 +64,11 @@ export function useErasor({
       user.access === "user" &&
       toDeleteShapes.filter((shape) => shape.userId !== user.userId).length > 0
     ) {
-      alert("not allowed to erase items drawn by other people");
+      showToast({
+        type: "error",
+        message: "You do not have permission to erase shapes you did not draw",
+        title: "Permission Denied",
+      });
       //prompt not allowed
       return;
     }

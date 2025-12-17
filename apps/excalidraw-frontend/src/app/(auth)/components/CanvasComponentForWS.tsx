@@ -8,6 +8,13 @@ import { fetchJSON } from "@/app/api/rooms";
 import { RoomUser } from "@/app/canvas/[slug]/page";
 import { OctagonAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Dialog, {
+  DialogActions,
+  DialogBackground,
+  DialogContent,
+  DialogTitle,
+} from "@/app/components/ui/Dialog";
+import { Button } from "@/app/components/ui/Button";
 
 type CreateMessage = Content & {
   channel: "canvas";
@@ -188,6 +195,7 @@ function CanvasComponentForWS({
     );
   };
   const handleInitialOperation = (message: InitialMessage) => {
+    console.log("initial message is ", message);
     setRoomUsers((prev) =>
       prev.map((user) => {
         if (message.onlineUsers.includes(user.username)) {
@@ -204,6 +212,7 @@ function CanvasComponentForWS({
     setRoomUsers((prev) => {
       const exists = prev.some((user) => user.userId === message.userId);
       if (!exists) {
+        console.log("exists or not ", exists, message, prev);
         const newUser: RoomUser = {
           isBanned: message.isBanned,
           isOnline: message.isOnline,
@@ -214,7 +223,7 @@ function CanvasComponentForWS({
         return [...prev, newUser];
       }
       return prev.map((user) => {
-        if (user.username === message.username) {
+        if (user.userId === message.userId) {
           return {
             ...user,
             isOnline: message.isOnline,
@@ -297,10 +306,10 @@ function CanvasComponentForWS({
     };
     socket.onclose = () => {
       setIsDisconnected(true);
-      setSocketConnection(null);
+      // setSocketConnection(null);
       setRoomUsers([]);
       setExistingShapes([]);
-      setMessagesLoaded(false);
+      // setMessagesLoaded(false);
     };
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
@@ -318,32 +327,28 @@ function CanvasComponentForWS({
   return (
     <div className="relative h-screen w-screen">
       {isDisconnected && (
-        <div className="w-full h-full z-100 absolute bg-black/60 top-0 flex items-center justify-center">
-          <div className="w-fit max-w-[290px] h-fit bg-neutral-800 rounded-md flex flex-col gap-3 p-4">
-            <div className="flex text-white text-lg font-bold gap-2 items-center">
-              <OctagonAlert size={20} className="pb-[1px]" /> Disconnected From
-              Server
-            </div>
-            <div className="text-neutral-300 font-light">
+        <DialogBackground>
+          <Dialog>
+            <DialogTitle>Disconnected From Server</DialogTitle>
+            <DialogContent>
               You have been disconnected from the server.
-            </div>
-            <div className="flex justify-end gap-3 mt-5 ">
-              <button
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="secondary"
                 onClick={() => router.push("/dashboard")}
-                className="cursor-pointer hover:bg-neutral-700 transition-all duration-100 bg-neutral-600 text-white px-3 py-1 text-sm rounded-md"
               >
                 Home
-              </button>
-
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => window.location.reload()}
-                className="cursor-pointer hover:bg-neutral-200 transition-all duration-100 px-3 py-1 text-sm bg-neutral-100 text-neutral-900 rounded-md"
               >
                 Reconnect
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </DialogBackground>
       )}
       <CanvasComponent
         roomUsers={roomUsers}

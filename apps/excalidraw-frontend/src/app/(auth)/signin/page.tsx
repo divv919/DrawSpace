@@ -1,5 +1,6 @@
 "use client";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useToast } from "@/app/hooks/useToast";
 import { SigninRequest, SigninResponse } from "@/types/auth";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -11,13 +12,18 @@ export default function Signin() {
   });
   const router = useRouter();
   const { signin, populateUser } = useAuth();
+  const { showToast } = useToast();
   const mutation = useMutation<SigninResponse, Error, SigninRequest>({
     mutationFn: signin,
     onSuccess: (data) => {
       populateUser(data?.user);
       console.log("Signin Successful");
       router.push("/");
-      //TODO: toast
+      showToast({
+        title: "Sign in Successful",
+        message: "You are now signed in to your account",
+        type: "success",
+      });
     },
     onError: (error) => {
       console.log(error);
@@ -32,7 +38,7 @@ export default function Signin() {
   };
   return (
     <div>
-      <h1>Signup Here</h1>
+      <h1>Signin Here</h1>
       <input
         disabled={mutation.isPending}
         type="email"
