@@ -3,11 +3,11 @@ import RoomActions from "@/app/components/RoomActions";
 
 export default function RoomsPage() {
   return (
-    <div className="flex-1 flex flex-col px-8 py-8">
+    <div className="flex-1 flex flex-col px-8 py-8 ">
       <div className="max-w-4xl mx-auto w-full">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-neutral-100 mb-2">Rooms</h1>
+          <h1 className="text-xl font-bold text-neutral-100 mb-1">Rooms</h1>
           <p className="text-neutral-400">
             Create a new room or join an existing one to collaborate with
             others.

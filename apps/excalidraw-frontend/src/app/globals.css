@@ -13,6 +13,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-manrope: var(--font-manrope);
+  --font-dancing-script: var(--font-dancing-script);
 }
 @media (prefers-color-scheme: dark) {
   :root {

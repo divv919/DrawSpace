@@ -44,7 +44,7 @@ export default function RoomActions() {
 
   return (
     <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
-      <h2 className="text-[16px] font-medium text-neutral-200">
+      <h2 className="text-[16px] font-semibold font-manrope text-neutral-200">
         Available Rooms
       </h2>
       <div className="flex items-center gap-2">

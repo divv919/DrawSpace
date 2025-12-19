@@ -1,21 +1,18 @@
 "use client";
-
+import CanvasTopBar from "@/app/(auth)/components/CanvasTopBar";
+import ZoomIndicator from "@/app/(auth)/components/ZoomIndicator";
 import CanvasSidebar from "@/app/components/CanvasSidebar";
-import createCanvas from "@/app/lib/draw";
-import { Content, Shape } from "@/types/canvas";
-import { useState, useRef, useEffect } from "react";
-import CanvasTopBar from "./CanvasTopBar";
-import ZoomIndicator from "./ZoomIndicator";
-import { getCursor } from "@/app/lib/util";
-import { createCamera } from "@/app/lib/camera";
-import type { Camera } from "@/app/lib/camera";
-import { useErasor } from "@/app/hooks/useErasor";
-import { useSelectedShape } from "@/app/hooks/useSelectedShape";
-import { useTextBox } from "@/app/hooks/useTextBox";
-import { v4 } from "uuid";
-import { RoomUser } from "@/app/canvas/[slug]/page";
-import CanvasInfo from "@/app/components/CanvasInfo";
+import { useErasorLocal } from "@/app/hooks/UseErasorLocal";
+import { useSelectedShapeLocal } from "@/app/hooks/useSelectedShapeLocal";
+import { useTextBoxLocal } from "@/app/hooks/useTextBoxLocal";
 import { useToast } from "@/app/hooks/useToast";
+import { Camera, createCamera } from "@/app/lib/camera";
+import createCanvas from "@/app/lib/draw";
+import { getCursor } from "@/app/lib/util";
+import { Content, Shape } from "@/types/canvas";
+import { useEffect, useRef, useState } from "react";
+import { v4 } from "uuid";
+
 const shapes: Shape[] = [
   "select",
   "hand",
@@ -47,41 +44,16 @@ const normalizeShape = (shape: Content): Content => {
 
   return normalized;
 };
-// Helper function to remove null values from an object
-const removeNullValues = <T extends Record<string, any>>(
-  obj: T
-): Partial<T> => {
-  const result: Partial<T> = {};
-  for (const key in obj) {
-    if (obj[key] !== null) {
-      result[key] = obj[key];
-    }
-  }
-  return result;
-};
 
-const CanvasComponent = ({
-  existingShapes,
-  user,
-  socket,
-  setExistingShapes,
-  roomUsers,
-}: {
-  user: {
-    userId: undefined | string;
-    access: "user" | "admin" | "moderator" | undefined;
-    username: string | undefined;
-  };
-  existingShapes: (Content & { id?: string; tempId?: string })[];
-
-  roomUsers: RoomUser[];
-  setExistingShapes: React.Dispatch<
-    React.SetStateAction<
-      (Content & { id?: string; tempId?: string; userId: string })[]
-    >
-  >;
-  socket: WebSocket;
-}) => {
+export default function LocalCanvasPage() {
+  const [user, setUser] = useState<{ userId: "local"; access: "admin" }>({
+    userId: "local",
+    access: "admin",
+  });
+  const [existingShapes, setExistingShapes] = useState<
+    (Content & { id?: string })[]
+  >([]);
+  const [initialLoad, setInitialLoad] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvas, setCanvas] = useState<ReturnType<typeof createCanvas> | null>(
     null
@@ -115,13 +87,12 @@ const CanvasComponent = ({
     showCaret: false,
     caretPos: -1,
     textArray: [],
-    userId: user.userId ?? "",
+    userId: user.userId ?? "local",
   });
   const [caretVisible, setCaretVisible] = useState(false);
   const [lastTypingTime, setLastTypingTime] = useState(Date.now());
   const caretBlinkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [lastSelectTextClick, setLastSelectTextClick] = useState(-1);
-  const [hiddenInput, setHiddenInput] = useState<string>("");
 
   // last mouse position is used when drawing lines by pencil
   const lastMousePosition = useRef<{ x: number; y: number }>({
@@ -147,7 +118,7 @@ const CanvasComponent = ({
     lastPinchCenter: null,
     lastTouchPosition: null,
   });
-  const textEditingStartedFromTouch = useRef(false);
+
   const {
     captureErasingShapes,
     finishErasing,
@@ -155,7 +126,7 @@ const CanvasComponent = ({
     setIsErasing,
     erasedShapesIndexes,
     setErasedShapesIndexes,
-  } = useErasor({
+  } = useErasorLocal({
     canvas,
     existingShapes,
     user,
@@ -173,7 +144,7 @@ const CanvasComponent = ({
     hoveredShapeIndex,
     handleObjectMove,
     handleObjectResize,
-  } = useSelectedShape({
+  } = useSelectedShapeLocal({
     existingShapes,
     lastMousePosition,
     setExistingShapes,
@@ -192,18 +163,51 @@ const CanvasComponent = ({
     finalizeTextShape,
     editingTextIndex,
     setEditingTextIndex,
-  } = useTextBox({ canvas, existingShapes, user });
+  } = useTextBoxLocal({ canvas, existingShapes, user });
+
+  const isColorChangeFromSelection = useRef(false);
 
   const MIN_ZOOM = 0.2;
   const MAX_ZOOM = 5;
 
   // the points that denote pencil strokes
   const [penPoints, setPenPoints] = useState<{ x: number; y: number }[]>([]);
-
+  const [hiddenInput, setHiddenInput] = useState<string>("");
   // this acts like a viewport for the user
   const camera = useRef<Camera | null>(null);
+  const textEditingStartedFromTouch = useRef(false);
   // for testing logs - todel
   const { showToast } = useToast();
+  // todel test
+  useEffect(() => {
+    const hiddenInput = document.getElementById("hidden-input");
+    if (isEditingText) {
+      hiddenInput?.focus();
+    } else {
+      hiddenInput?.blur();
+    }
+  }, [isEditingText]);
+  useEffect(() => {
+    console.log({ existingShapes });
+  }, [existingShapes]);
+  useEffect(() => {
+    try {
+      const drawspace = localStorage.getItem("drawspace");
+      if (drawspace) {
+        const shapes = JSON.parse(drawspace);
+        if (Array.isArray(shapes)) setExistingShapes(shapes);
+      }
+    } catch (err) {
+      console.error("Error getting existing shapes", err);
+    } finally {
+      setInitialLoad(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (!initialLoad) return;
+    localStorage.setItem("drawspace", JSON.stringify(existingShapes));
+  }, [existingShapes]);
+
   useEffect(() => {
     if (camera.current === null) {
       camera.current = createCamera(0, 0, 1);
@@ -236,15 +240,12 @@ const CanvasComponent = ({
       document.removeEventListener("touchmove", disableTouchZoom);
     };
   }, []);
-
   useEffect(() => {
-    const hiddenInput = document.getElementById("hidden-input");
-    if (isEditingText) {
-      hiddenInput?.focus();
-    } else {
-      hiddenInput?.blur();
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      setCanvas(createCanvas(canvas));
     }
-  }, [isEditingText]);
+  }, [canvasRef.current]);
 
   useEffect(() => {
     if (!canvas || !camera.current) return;
@@ -259,7 +260,7 @@ const CanvasComponent = ({
         caretPos: -1,
         showCaret: false,
         textArray: [],
-        userId: user.userId ?? "",
+        userId: user.userId ?? "local",
       });
       setIsEditingText(false);
     }
@@ -275,10 +276,6 @@ const CanvasComponent = ({
     }
   }, [currentShape]);
 
-  // Add a ref to track if color change is from user selection vs user color picker
-  const isColorChangeFromSelection = useRef(false);
-
-  // Effect to update selected shape's color when color changes
   useEffect(() => {
     if (
       !canvas ||
@@ -297,26 +294,17 @@ const CanvasComponent = ({
     // Get the selected shape
     const selectedShape = existingShapes[selectedShapeIndex];
     if (!selectedShape) {
+      console.log("selected shape not found");
       return;
     }
     if (selectedShape.color === currentColor) {
-      return;
-    }
-    if (selectedShape.userId !== user.userId && user.access === "user") {
-      showToast({
-        type: "error",
-        title: "Permission Denied",
-        message: "You do not have permission to change the color of this shape",
-      });
-      setCurrentColor(selectedShape.color);
+      console.log("selected shape color match");
+
       return;
     }
 
     // Only update if the color actually changed
 
-    if (!selectedShape.id) {
-      return;
-    }
     // Update the shape's color in existingShapes
     const updated = [...existingShapes];
     updated[selectedShapeIndex] = {
@@ -326,24 +314,6 @@ const CanvasComponent = ({
 
     // Update state
     setExistingShapes(updated);
-    const { startX, startY, text, type, endX, endY, points } = selectedShape;
-    // Send to websocket server
-
-    socket.send(
-      JSON.stringify({
-        channel: "canvas",
-        operation: "update",
-        color: currentColor,
-        startX,
-        startY,
-        text,
-        type,
-        endX,
-        endY,
-        points,
-        id: selectedShape.id,
-      })
-    );
 
     // Redraw canvas
     canvas.redraw(
@@ -363,10 +333,8 @@ const CanvasComponent = ({
     canvas,
     camera,
     // existingShapes,
-    socket,
     erasedShapesIndexes,
   ]);
-
   // Separate effect for redraw to ensure state is updated
   useEffect(() => {
     if (!canvas || !camera.current) return;
@@ -391,7 +359,6 @@ const CanvasComponent = ({
     canvas,
     camera,
   ]);
-  // making the size of canvas according to the device width and height
   useEffect(() => {
     const listener = () => {
       if (typeof window !== "undefined") {
@@ -399,16 +366,36 @@ const CanvasComponent = ({
           width: window.innerWidth,
           height: window.innerHeight,
         });
-        // canvas?.redraw(camera.current ?? createCamera(0, 0, 1), existingShapes, selectedShapeIndex, erasedShapesIndexes);
       }
     };
     listener();
     window.addEventListener("resize", listener);
     return () => window.removeEventListener("resize", listener);
   }, []);
+  useEffect(() => {
+    if (!canvas || !camera.current) return;
 
-  // every zoom in or zoom out with button tap requires the canvas to redraw,
-  // basically enforcing the zoom logic
+    // Only include tempTextValue if we're editing text
+    const shapesToRender =
+      isEditingText && currentShape === "text"
+        ? [...existingShapes, tempTextValue]
+        : existingShapes;
+
+    const selectedIndex = currentShape === "select" ? selectedShapeIndex : -1;
+    const erasedIndexes = currentShape === "erasor" ? erasedShapesIndexes : [];
+
+    canvas.redraw(camera.current, shapesToRender, selectedIndex, erasedIndexes);
+  }, [
+    currentShape,
+    existingShapes,
+    tempTextValue,
+    isEditingText,
+    selectedShapeIndex,
+    erasedShapesIndexes,
+    canvas,
+    camera,
+  ]);
+  // makin
   useEffect(() => {
     if (!canvas || !camera.current) {
       return;
@@ -420,9 +407,6 @@ const CanvasComponent = ({
       erasedShapesIndexes
     );
   }, [zoomLevel]);
-
-  // for initializing the canvas
-
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
@@ -477,23 +461,14 @@ const CanvasComponent = ({
           "and access",
           user.access
         );
-        if (selectedShape.userId !== user.userId && user.access === "user") {
-          showToast({
-            type: "error",
-            title: "Permission Denied",
-            message: "You do not have permission to delete this shape",
-          });
-          return;
-        }
+
         const updated = existingShapes.filter(
           (_, index) => selectedShapeIndex !== index
         );
         const formattedUpdate = {
           ...existingShapes[selectedShapeIndex],
           operation: "delete",
-          channel: "canvas",
         };
-        socket.send(JSON.stringify(formattedUpdate));
         setExistingShapes(updated);
         setSelectedShapeIndex(-1);
         setHandle(undefined);
@@ -506,7 +481,7 @@ const CanvasComponent = ({
           finalizeTextShape({
             camera: camera.current,
             canvas,
-            socket,
+
             existingShapes,
             setExistingShapes,
             currentColor,
@@ -518,12 +493,12 @@ const CanvasComponent = ({
         return;
       }
 
-      if (isEditingText) {
-        setLastTypingTime(Date.now());
-        setCaretVisible(true);
-        handleTextBoxEditing(e.key);
-        return;
-      }
+      // if (isEditingText) {
+      //   setLastTypingTime(Date.now());
+      //   setCaretVisible(true);
+      //   handleTextBoxEditing(e.key);
+      //   return;
+      // }
       if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
         setCurrentShape(shapes[Number(e.key) - 1]);
       }
@@ -575,7 +550,7 @@ const CanvasComponent = ({
             showCaret: caretVisible,
             caretPos: currentCaretPos,
             textArray: currentText,
-            userId: user.userId ?? "",
+            userId: user.userId ?? "local",
           },
         ],
         selectedShapeIndex,
@@ -608,7 +583,51 @@ const CanvasComponent = ({
     );
   }, [existingShapes, canvas]);
 
-  // Logic for mouse movement
+  // Helper function to get touch coordinates
+  const getTouchCoordinates = (touch: React.Touch) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return { x: touch.clientX, y: touch.clientY };
+    return {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  // Helper function to calculate distance between two touches
+  const getTouchDistance = (
+    touch1: { x: number; y: number },
+    touch2: { x: number; y: number }
+  ) => {
+    const dx = touch2.x - touch1.x;
+    const dy = touch2.y - touch1.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Helper function to get center point between two touches
+  const getTouchCenter = (
+    touch1: { x: number; y: number },
+    touch2: { x: number; y: number }
+  ) => {
+    return {
+      x: (touch1.x + touch2.x) / 2,
+      y: (touch1.y + touch2.y) / 2,
+    };
+  };
+
+  // Helper to create a synthetic mouse event from touch
+  const createSyntheticMouseEvent = (
+    type: "mousedown" | "mousemove" | "mouseup",
+    clientX: number,
+    clientY: number
+  ): React.MouseEvent<HTMLCanvasElement> => {
+    return {
+      clientX,
+      clientY,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    } as React.MouseEvent<HTMLCanvasElement>;
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!canvas || !camera.current) {
       return;
@@ -623,24 +642,11 @@ const CanvasComponent = ({
     }
 
     if (isMovingObject) {
-      handleObjectMove(
-        camera.current,
-        e,
-        erasedShapesIndexes,
-        canvas,
-        socket,
-        user
-      );
+      handleObjectMove(camera.current, e, erasedShapesIndexes, canvas, user);
     }
     if (isResizingObject) {
-      handleObjectResize(
-        camera.current,
-        e,
-        erasedShapesIndexes,
-        canvas,
-        socket,
-        user
-      );
+      // alert(e.clientX + " " + e.clientY);
+      handleObjectResize(camera.current, e, erasedShapesIndexes, canvas, user);
       return;
     }
     if (currentShape === "select") {
@@ -662,8 +668,7 @@ const CanvasComponent = ({
       const hoveredElementIndex = canvas.getHoveredElementIndex(
         camera.current,
         existingShapes,
-        { x: e.clientX, y: e.clientY },
-        10
+        { x: e.clientX, y: e.clientY }
       );
       setHoveredShapeIndex(hoveredElementIndex);
       return;
@@ -752,12 +757,7 @@ const CanvasComponent = ({
     }
     if (isErasing && currentShape === "erasor") {
       if (isErasing) {
-        finishErasing(
-          camera.current,
-          selectedShapeIndex,
-          setExistingShapes,
-          socket
-        );
+        finishErasing(camera.current, selectedShapeIndex, setExistingShapes);
       }
       setIsErasing(false);
       setErasedShapesIndexes([]);
@@ -768,10 +768,9 @@ const CanvasComponent = ({
         existingShapes[selectedShapeIndex] &&
         existingShapes[selectedShapeIndex].type === "text"
       ) {
-        console.log("last ", lastSelectTextClick, "now", Date.now());
+        // console.log("last ", lastSelectTextClick, "now", Date.now());
         const timeGap = Date.now() - lastSelectTextClick;
         if (lastSelectTextClick > 0 && timeGap < 400) {
-          console.log("doubnle clcik worked");
           setEditingTextIndex(selectedShapeIndex);
           setIsEditingText(true);
           const shape = existingShapes[selectedShapeIndex];
@@ -779,6 +778,7 @@ const CanvasComponent = ({
           // Mark that we're setting color from selection
           isColorChangeFromSelection.current = true;
           setCurrentColor(shape.color);
+          // timeout to reset
           setTimeout(() => {
             isColorChangeFromSelection.current = false;
           }, 0);
@@ -791,7 +791,7 @@ const CanvasComponent = ({
           setSelectedShapeIndex(-1);
           setHandle(undefined);
           setCurrentShape("text");
-
+          console.log("selected shape index is ", selectedShapeIndex);
           existingShapes[selectedShapeIndex].color = "rgba(255,255,255,0)";
           setCurrentCaretPos((shape.text?.length ?? 0) - 1);
         }
@@ -877,22 +877,6 @@ const CanvasComponent = ({
     setPenPoints([]);
     setStartXY({ x: 0, y: 0 });
     setEndXY({ x: 0, y: 0 });
-    // send to websocket server
-    socket.send(
-      JSON.stringify({
-        channel: "canvas",
-        operation: "create",
-        color: currentColor,
-        type: currentShape,
-        endX: worldX,
-        endY: worldY,
-        startX: startXY.x,
-        startY: startXY.y,
-        points: penPoints,
-
-        tempId,
-      })
-    );
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -910,7 +894,7 @@ const CanvasComponent = ({
       finalizeTextShape({
         camera: camera.current,
         canvas,
-        socket,
+
         existingShapes,
         setExistingShapes,
         currentColor,
@@ -1076,53 +1060,9 @@ const CanvasComponent = ({
     );
   };
 
-  // Helper function to get touch coordinates
-  const getTouchCoordinates = (touch: React.Touch) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return { x: touch.clientX, y: touch.clientY };
-    return {
-      x: touch.clientX,
-      y: touch.clientY,
-    };
-  };
-
-  // Helper function to calculate distance between two touches
-  const getTouchDistance = (
-    touch1: { x: number; y: number },
-    touch2: { x: number; y: number }
-  ) => {
-    const dx = touch2.x - touch1.x;
-    const dy = touch2.y - touch1.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  // Helper function to get center point between two touches
-  const getTouchCenter = (
-    touch1: { x: number; y: number },
-    touch2: { x: number; y: number }
-  ) => {
-    return {
-      x: (touch1.x + touch2.x) / 2,
-      y: (touch1.y + touch2.y) / 2,
-    };
-  };
-
-  // Helper to create a synthetic mouse event from touch
-  const createSyntheticMouseEvent = (
-    type: "mousedown" | "mousemove" | "mouseup",
-    clientX: number,
-    clientY: number
-  ): React.MouseEvent<HTMLCanvasElement> => {
-    return {
-      clientX,
-      clientY,
-      preventDefault: () => {},
-      stopPropagation: () => {},
-    } as React.MouseEvent<HTMLCanvasElement>;
-  };
-
   // Touch event handlers
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // e.preventDefault();
     if (!canvas || !camera.current) {
       return;
     }
@@ -1161,6 +1101,12 @@ const CanvasComponent = ({
       if (currentShape === "text") {
         e.preventDefault();
         textEditingStartedFromTouch.current = true;
+        // Focus the hidden input after a small delay to ensure it happens
+        // after the touch event completes and doesn't get stolen by canvas
+        // setTimeout(() => {
+        //   const hiddenInput = document.getElementById("hidden-input");
+        //   hiddenInput?.focus();
+        // }, 100);
       }
       if (currentShape === "select") {
         if (!isMovingObject && selectedShapeIndex !== -1) {
@@ -1225,6 +1171,7 @@ const CanvasComponent = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // e.preventDefault();
     if (!canvas || !camera.current) {
       return;
     }
@@ -1251,7 +1198,7 @@ const CanvasComponent = ({
           const dx = center.x - lastCenter.x;
           const dy = center.y - lastCenter.y;
 
-          // PAN
+          // PAN (this is what you're missing)
           camera.current.x += dx;
           camera.current.y += dy;
         }
@@ -1393,7 +1340,6 @@ const CanvasComponent = ({
         setCurrentColor={setCurrentColor}
         currentColor={currentColor}
       />
-      <CanvasInfo user={user} roomUsers={roomUsers} socket={socket} />
       <input
         id="hidden-input"
         value={hiddenInput}
@@ -1410,6 +1356,7 @@ const CanvasComponent = ({
         onKeyDown={(e) => {
           setLastTypingTime(Date.now());
           setCaretVisible(true);
+          // handleTextBoxEditing(e.key);
           if (e.key === "Backspace") {
             handleTextBoxEditing("Backspace");
           }
@@ -1428,5 +1375,4 @@ const CanvasComponent = ({
       />
     </div>
   );
-};
-export default CanvasComponent;
+}

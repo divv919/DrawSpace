@@ -486,8 +486,10 @@ export class Canvas {
   getHoveredElementIndex(
     camera: Camera,
     existingShapes: Content[],
-    currentXY: { x: number; y: number }
+    currentXY: { x: number; y: number },
+    tolerance: number = 10
   ) {
+    console.log("tolerance", tolerance);
     let hoveredElementIndex = -1;
     const worldX = (currentXY.x - camera.x) / camera.scale;
     const worldY = (currentXY.y - camera.y) / camera.scale;
@@ -502,7 +504,8 @@ export class Canvas {
             element.endX ?? 0,
             element.endY ?? 0,
             worldX,
-            worldY
+            worldY,
+            tolerance
           );
           break;
         case "ellipse":
@@ -512,7 +515,8 @@ export class Canvas {
             element.endX ?? 0,
             element.endY ?? 0,
             worldX,
-            worldY
+            worldY,
+            tolerance
           );
           break;
         case "line":
@@ -522,7 +526,8 @@ export class Canvas {
             element.endX ?? 0,
             element.endY ?? 0,
             worldX,
-            worldY
+            worldY,
+            tolerance
           );
           break;
         case "arrow":
@@ -532,14 +537,16 @@ export class Canvas {
             element.endX ?? 0,
             element.endY ?? 0,
             worldX,
-            worldY
+            worldY,
+            tolerance
           );
           break;
         case "pencil":
           isHovering = this.mouseOnPenStroke(
             element.points ?? [],
             worldX,
-            worldY
+            worldY,
+            tolerance
           );
           break;
         case "text":
@@ -550,7 +557,8 @@ export class Canvas {
             element.endY ?? 0,
             worldX,
             worldY,
-            element.text ?? ""
+            element.text ?? "",
+            tolerance
           );
           break;
         default:
@@ -578,9 +586,9 @@ export class Canvas {
     endYWithBaseline: number,
     currentX: number,
     currentY: number,
-    text: string
+    text: string,
+    tolerance: number = 10
   ) {
-    const tolerance = 10;
     const context = this.ctx;
     context.font = "48px serif";
     const metrics = context.measureText(text);
@@ -727,10 +735,9 @@ export class Canvas {
     endX: number,
     endY: number,
     currentX: number,
-    currentY: number
+    currentY: number,
+    tolerance: number = 10
   ) {
-    const tolerance = 10;
-
     const minX = Math.min(startX, endX);
     const maxX = Math.max(startX, endX);
     const minY = Math.min(startY, endY);
@@ -765,8 +772,15 @@ export class Canvas {
     endX: number,
     endY: number,
     currentX: number,
-    currentY: number
+    currentY: number,
+    tolerance: number = 0.1
   ) {
+    if (tolerance >= 20) {
+      tolerance = 0.2;
+    } else {
+      tolerance = 0.1;
+    }
+
     // Center of ellipse
     const cx = (startX + endX) / 2;
     const cy = (startY + endY) / 2;
@@ -785,7 +799,7 @@ export class Canvas {
     const value = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
 
     // ✅ Border detection with tolerance
-    const tolerance = 0.1; // adjust for stroke thickness
+
     return value >= 1 - tolerance && value <= 1 + tolerance;
   }
   mouseOnLine(
@@ -794,10 +808,9 @@ export class Canvas {
     endX: number,
     endY: number,
     currentX: number,
-    currentY: number
+    currentY: number,
+    tolerance: number = 10
   ) {
-    const tolerance = 10;
-
     const dx = endX - startX;
     const dy = endY - startY;
 
@@ -833,10 +846,9 @@ export class Canvas {
     endX: number,
     endY: number,
     currentX: number,
-    currentY: number
+    currentY: number,
+    tolerance: number = 10
   ) {
-    const tolerance = 10;
-
     const dx = endX - startX;
     const dy = endY - startY;
 
@@ -868,7 +880,8 @@ export class Canvas {
   mouseOnPenStroke(
     points: { x: number; y: number }[],
     currentX: number,
-    currentY: number
+    currentY: number,
+    tolerance: number = 10
   ) {
     for (let i = 0; i < points.length - 2; i++) {
       const midX = (points[i].x + points[i + 1].x) / 2;
@@ -880,7 +893,8 @@ export class Canvas {
           midX,
           midY,
           currentX,
-          currentY
+          currentY,
+          tolerance
         )
       ) {
         return true;

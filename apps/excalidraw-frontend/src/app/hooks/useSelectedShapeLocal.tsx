@@ -6,7 +6,7 @@ import { Camera } from "../lib/camera";
 import { Canvas } from "../lib/draw";
 import { useToast } from "./useToast";
 
-export function useSelectedShape({
+export function useSelectedShapeLocal({
   existingShapes,
   lastMousePosition,
   setExistingShapes,
@@ -42,7 +42,6 @@ export function useSelectedShape({
     e: React.MouseEvent,
     erasedShapesIndexes: number[],
     canvas: Canvas,
-    socket: WebSocket,
     user: {
       userId: undefined | string;
       access: "user" | "admin" | "moderator" | undefined;
@@ -50,6 +49,9 @@ export function useSelectedShape({
   ) => {
     // add logic for moving object
     const selectedShape = existingShapes[selectedShapeIndex];
+    if (!selectedShape) {
+      return;
+    }
     if (selectedShape.userId !== user.userId && user.access === "user") {
       showToast({
         type: "error",
@@ -102,10 +104,7 @@ export function useSelectedShape({
       erasedShapesIndexes
     );
 
-    const formattedUpdate = { ...updatedShape, operation: "update" };
-
     setExistingShapes(updatedShapes);
-    socket.send(JSON.stringify(formattedUpdate));
   };
 
   const handleObjectResize = (
@@ -113,7 +112,7 @@ export function useSelectedShape({
     e: React.MouseEvent,
     erasedShapesIndexes: number[],
     canvas: Canvas,
-    socket: WebSocket,
+
     user: {
       userId: undefined | string;
       access: "user" | "admin" | "moderator" | undefined;
@@ -125,19 +124,7 @@ export function useSelectedShape({
       (e.clientY - lastMousePosition.current.y) / camera.scale;
 
     const selectedShape = existingShapes[selectedShapeIndex];
-    if (
-      selectedShape &&
-      selectedShape.userId !== user.userId &&
-      user.access === "user"
-    ) {
-      setIsResizingObject(false);
-      // setSelectedShapeIndex(-1);
-      setHandle(undefined);
-      showToast({
-        type: "error",
-        title: "Permission Denied",
-        message: "You do not have permission to resize this shape",
-      });
+    if (!selectedShape) {
       return;
     }
     let updatedShape: Content;
@@ -400,14 +387,9 @@ export function useSelectedShape({
       selectedShapeIndex,
       erasedShapesIndexes
     );
-    const formattedUpdate = {
-      ...updatedShape,
-      operation: "update",
-      channel: "canvas",
-    };
+    const formattedUpdate = { ...updatedShape, operation: "update" };
     setExistingShapes(updatedShapes);
 
-    socket.send(JSON.stringify(formattedUpdate));
     lastMousePosition.current = {
       x: e.clientX,
       y: e.clientY,

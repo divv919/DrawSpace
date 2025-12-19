@@ -4,7 +4,7 @@ import type { Canvas } from "../lib/draw";
 import React, { SetStateAction, useState } from "react";
 import type { Camera } from "../lib/camera";
 import { useToast } from "./useToast";
-export function useErasor({
+export function useErasorLocal({
   canvas,
   existingShapes,
   user,
@@ -45,8 +45,7 @@ export function useErasor({
     selectedShapeIndex: number,
     setExistingShapes: React.Dispatch<
       SetStateAction<(Content & { id?: string; tempId?: string })[]>
-    >,
-    socket: WebSocket
+    >
   ) => {
     if (!canvas) {
       return;
@@ -54,37 +53,20 @@ export function useErasor({
     const toDeleteShapes = existingShapes.filter((_, index) =>
       erasedShapesIndexes.includes(index)
     );
-    if (
-      !(toDeleteShapes.length > 0) ||
-      !toDeleteShapes.every((val) => typeof val.id === "string")
-    ) {
+    if (!(toDeleteShapes.length > 0)) {
+      console.log(
+        "No shapes to delete",
+
+        toDeleteShapes
+      );
       return;
     }
-    if (
-      user.access === "user" &&
-      toDeleteShapes.filter((shape) => shape.userId !== user.userId).length > 0
-    ) {
-      showToast({
-        type: "error",
-        message: "You do not have permission to erase shapes you did not draw",
-        title: "Permission Denied",
-      });
-      //prompt not allowed
-      return;
-    }
+
     const nextShapes = existingShapes.filter(
       (_, index) => !erasedShapesIndexes.includes(index)
     );
+    console.log(erasedShapesIndexes);
     setExistingShapes(nextShapes);
-
-    toDeleteShapes.forEach((shape) => {
-      const formatShape = { ...shape, operation: "delete", channel: "canvas" };
-      socket.send(
-        JSON.stringify({
-          ...formatShape,
-        })
-      );
-    });
 
     setErasedShapesIndexes([]);
 

@@ -1,4 +1,4 @@
-import { cn } from "@/app/lib/util";
+import { cn, toTitleCase } from "@/app/lib/util";
 import type { Shape } from "@/types/canvas";
 import {
   Circle,
@@ -34,11 +34,12 @@ export default function CanvasTopBar({
   shapes: Shape[];
 }) {
   return (
-    <div className="absolute uppercase bg-neutral-800 p-1 rounded-md top-5 w-fit left-1/2 -translate-x-1/2  h-fit flex items-center gap-2 ">
+    <div className="absolute uppercase bg-neutral-800 p-1 rounded-md bottom-5   md:top-5 w-fit left-1/2 -translate-x-1/2  h-fit flex items-center gap-1 md:gap-2 ">
       {shapes.map((shape: Shape, index) => (
         <div
           key={index + shape}
           onClick={() => setCurrentShape(shape)}
+          title={toTitleCase(shape)}
           className={cn(
             "px-2 py-1 cursor-pointer hover:bg-neutral-700 text-neutral-400 relative rounded-md p-[10px] ",
             currentShape === shape && "bg-neutral-700 text-neutral-50 "

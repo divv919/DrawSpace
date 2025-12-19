@@ -18,8 +18,9 @@ export default function ZoomIndicator({
     return;
   }
   return (
-    <div className="flex gap-3 items-center overflow-hidden rounded-md absolute bottom-0 my-4 right-5 bg-neutral-800">
+    <div className="flex gap-3 items-center overflow-hidden rounded-md absolute  bottom-18 md:bottom-0 my-4 right-5 bg-neutral-800">
       <button
+        title="Zoom In"
         className="hover:bg-neutral-700 transition-all duration-200 cursor-pointer px-3 py-2"
         onClick={() => {
           const value = Math.min(
@@ -34,6 +35,7 @@ export default function ZoomIndicator({
       </button>
       <div>{(zoomLevel * 100).toFixed(0)}%</div>
       <button
+        title="Zoom Out"
         onClick={() => {
           const value = Math.min(
             MAX_ZOOM,

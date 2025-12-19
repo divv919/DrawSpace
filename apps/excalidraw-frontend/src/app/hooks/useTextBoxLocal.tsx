@@ -61,7 +61,7 @@ const isValidInputKey = (key: string): boolean => {
   );
 };
 
-export function useTextBox({
+export function useTextBoxLocal({
   canvas,
   existingShapes,
   user,
@@ -150,7 +150,6 @@ export function useTextBox({
   const finalizeTextShape = ({
     camera,
     canvas,
-    socket,
     existingShapes,
     setExistingShapes,
     selectedShapeIndex,
@@ -160,7 +159,7 @@ export function useTextBox({
   }: {
     camera: Camera;
     canvas: Canvas;
-    socket: WebSocket;
+
     existingShapes: Content[];
     setExistingShapes: React.Dispatch<React.SetStateAction<Content[]>>;
     selectedShapeIndex: number;
@@ -201,27 +200,23 @@ export function useTextBox({
       tempId,
       userId: user.userId ?? "",
     };
+    console.log("editing index is ", editingIndex);
+
     if (
       editingIndex !== undefined &&
       editingIndex >= 0 &&
       editingIndex < existingShapes.length
     ) {
+      // was editing existing shape
+      console.log("editing index is ", editingIndex);
       updated = [...existingShapes];
       updated[editingIndex] = newTextShape;
+      setEditingTextIndex(null);
     } else {
       updated = [...existingShapes, newTextShape];
     }
     // update local shapes
     setExistingShapes(updated);
-
-    // emit to backend
-    socket.send(
-      JSON.stringify({
-        ...newTextShape,
-        channel: "canvas",
-        operation: "create",
-      })
-    );
 
     // redraw
     canvas.redraw(camera, updated, selectedShapeIndex, erasedShapesIndexes);

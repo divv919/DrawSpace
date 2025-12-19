@@ -1,5 +1,7 @@
 "use client";
 
+import { toTitleCase } from "../lib/util";
+
 const availableColors = ["white", "red", "green", "blue", "yellow"];
 export default function CanvasSidebar({
   currentColor,
@@ -17,6 +19,7 @@ export default function CanvasSidebar({
         {availableColors.map((color, index) => {
           return (
             <div
+              title={toTitleCase(color)}
               key={index}
               className={`rounded-md ${currentColor === color ? "border border-blue-500" : ""}`}
             >

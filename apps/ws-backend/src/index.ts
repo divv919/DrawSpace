@@ -28,7 +28,6 @@ const ShapeSchema = z.enum([
   "text",
 ]);
 const CanvasMessageSchema = z.object({
-  channel: z.literal("canvas"),
   type: ShapeSchema,
   text: z.string().nullish(),
   startX: z.number().optional(),
@@ -76,16 +75,19 @@ const ClientRoomControlSchema = z.discriminatedUnion("operation", [
 
 // Canvas message schema
 const ClientCreateSchema = CanvasMessageSchema.extend({
+  channel: z.literal("canvas"),
   operation: z.literal("create"),
   tempId: z.string(),
 });
 
 const ClientUpdateSchema = CanvasMessageSchema.extend({
+  channel: z.literal("canvas"),
   operation: z.literal("update"),
   id: z.string(),
 });
 
 const ClientDeleteSchema = CanvasMessageSchema.extend({
+  channel: z.literal("canvas"),
   operation: z.literal("delete"),
   id: z.string(),
 });
@@ -293,7 +295,8 @@ wss.on("connection", async (ws, request) => {
       const validatedMessage = ClientMessageSchema.safeParse({
         ...message,
       });
-      console.log("validated message data", validatedMessage.data);
+
+      console.log("validated message data", validatedMessage);
 
       if (!validatedMessage.success) {
         console.log("Invalid message", validatedMessage.error);
