@@ -10,13 +10,9 @@ import Dialog, {
 } from "@/app/components/ui/Dialog";
 import { easeOut, motion } from "motion/react";
 import { BACKEND_BASE_URL } from "@/config/variables";
-import { Content } from "@/types/canvas";
-import { OctagonAlert } from "lucide-react";
+
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import * as jwt from "jsonwebtoken";
-import JWT_SECRET from "@repo/backend-common/config";
 
 export type RoomUser = {
   username: string;

@@ -1,7 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import jwt, { decode, JwtPayload } from "jsonwebtoken";
 import "dotenv/config";
-// import JWT_SECRET from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
 import { uuid } from "uuidv4";
 const wss = new WebSocketServer({ port: 8080 });

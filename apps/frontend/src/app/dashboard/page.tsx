@@ -9,10 +9,8 @@ import {
 } from "lucide-react";
 import { JSX } from "react";
 import { Button } from "../components/ui/Button";
-import JWT_SECRET from "@repo/backend-common/config";
 export default function DashboardPage() {
   const router = useRouter();
-  console.log("JWT_SECRET", JWT_SECRET);
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 pb-24 md:pb-12 relative">
       <div className="hidden lg:block absolute h-full border-x border-x-neutral-800 right-0 w-30 bg-[image:repeating-linear-gradient(315deg,_var(--color-neutral-800)_0,_var(--color-neutral-800)_1px,transparent_0,_transparent_50%)] bg-[size:10px_10px]"></div>

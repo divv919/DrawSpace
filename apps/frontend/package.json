@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@repo/backend-common": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-query": "^5.90.8",
     "@types/axios": "^0.14.4",
