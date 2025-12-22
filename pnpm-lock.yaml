@@ -194,6 +194,10 @@ importers:
       zod:
         specifier: ^3.25.63
         version: 3.25.63
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.0.3
 
   packages/db:
     dependencies:
@@ -204,6 +208,9 @@ importers:
         specifier: workspace:*
         version: link:../typescript-config
     devDependencies:
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.0.3
       prisma:
         specifier: 6.9.0
         version: 6.9.0(typescript@5.8.2)
