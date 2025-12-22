@@ -1,3 +1,4 @@
+/// <reference types="node" />
 {
   "extends": "@repo/typescript-config/base.json",
 
