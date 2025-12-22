@@ -1,12 +1,15 @@
 {
   "name": "@repo/db",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "prisma generate && tsc",
+    "prisma:generate": "prisma generate"
   },
   "exports": {
-    "./client": "./src/index.ts"
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "keywords": [],
   "author": "",

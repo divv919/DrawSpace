@@ -1,11 +1,12 @@
 import { WebSocketServer, WebSocket } from "ws";
 import jwt, { decode, JwtPayload } from "jsonwebtoken";
 import "dotenv/config";
-import { prismaClient } from "@repo/db/client";
+import { prismaClient } from "@repo/db";
 import { uuid } from "uuidv4";
-const wss = new WebSocketServer({ port: 8080 });
+const PORT = process.env.PORT || 8080;
+const wss = new WebSocketServer({ port: Number(PORT) });
 import z from "zod";
-import { Role } from "@repo/common/schema";
+import { Role } from "@repo/common";
 
 type Role = "user" | "admin" | "moderator";
 

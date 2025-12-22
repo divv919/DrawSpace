@@ -3,30 +3,24 @@ const app = express();
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 import authMiddleware from "./authMiddleware";
-import {
-  CreateRoomSchema,
-  SignInSchema,
-  UserSchema,
-} from "@repo/common/schema";
-import { prismaClient } from "@repo/db/client";
+import { CreateRoomSchema } from "@repo/common";
+import { prismaClient } from "@repo/db";
 import { generateSlug } from "./lib/util";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { slugToRoom } from "./lib/db.helpers";
-const PORT = 3002;
+const PORT = process.env.PORT || 3002;
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
     credentials: true,
 
-    origin: "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
   })
 );
 
-console.log("Environment , ", process.env.NODE_ENV);
-
-app.use((req, res, next) => {
+app.use((req, _, next) => {
   console.log("Body is : ", req.body);
   next();
 });
@@ -57,7 +51,7 @@ app.post("/createRoom", authMiddleware, async (req, res) => {
         name,
       },
     });
-    const responseAccess = await prismaClient.access.create({
+    await prismaClient.access.create({
       data: {
         userId: adminId,
         roomId: response.id,
@@ -113,8 +107,9 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
     res.status(400).json({ message: "Slug is required", success: false });
     return;
   }
+
   let access;
-  let userId;
+
   let username;
   try {
     const room = await slugToRoom(slug);
@@ -188,7 +183,6 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       console.log("response after creating access is ", response);
       access = response.role;
       username = response.user.username;
-      userId = response.id;
     } else {
       if (hasAccess.isBanned) {
         res.status(403).json({
@@ -206,6 +200,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       { userId: req.userId, roomId: room.id, access: access },
       JWT_SECRET
     );
+
     const peopleInRoom = await prismaClient.access.findMany({
       where: {
         roomId: room.id,
@@ -218,9 +213,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         },
       },
     });
-    if (!peopleInRoom) {
-      console.error("error fetching people info in room");
-    }
+
     const roomUsers = peopleInRoom.map((ppl) => {
       return {
         userId: ppl.userId,
@@ -318,7 +311,7 @@ app.post("/changeRoomPassword", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const response = await prismaClient.room.update({
+    await prismaClient.room.update({
       where: { id: room.id },
       data: { password },
     });

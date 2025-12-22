@@ -1,6 +1,6 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { prismaClient } from "@repo/db/client";
+import { prismaClient } from "@repo/db";
 import GithubProvider from "next-auth/providers/github";
 
 // Validate required environment variables
@@ -55,7 +55,6 @@ const authOptions: NextAuthOptions = {
       try {
         if (user && account) {
           const provider = account.provider || "github";
-          console.log("user is ", user, "account is ", account);
           if (provider === "github" && !profile?.login) {
             throw new Error("Username (Login) is required");
           }
