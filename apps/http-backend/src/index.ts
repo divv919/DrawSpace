@@ -3,7 +3,6 @@ const app = express();
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 import authMiddleware from "./authMiddleware";
-import JWT_SECRET from "@repo/backend-common/config";
 import {
   CreateRoomSchema,
   SignInSchema,
@@ -30,81 +29,6 @@ console.log("Environment , ", process.env.NODE_ENV);
 app.use((req, res, next) => {
   console.log("Body is : ", req.body);
   next();
-});
-app.post("/signup", async (req, res) => {
-  const response = UserSchema.safeParse(req.body);
-  console.log("response is ", response.error);
-  if (!response.success) {
-    res.status(422).json({ success: false, message: "Invalid input" });
-    return;
-  }
-
-  const { email, password, username } = req.body;
-
-  const alreadyExists = await prismaClient.user.count({ where: { email } });
-  if (!!alreadyExists) {
-    res.status(409).json({ success: false, message: "Email already in use" });
-    return;
-  }
-  const userId = await prismaClient.user.create({
-    data: {
-      email,
-      password,
-      username,
-    },
-  });
-  const token = jwt.sign({ userId: userId.id }, JWT_SECRET);
-  res
-    .status(200)
-    .cookie("authToken", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 30 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    })
-    .json({
-      success: true,
-      message: "User created successfully",
-      user: { email, username },
-    });
-});
-
-app.post("/signin", async (req, res) => {
-  const { email, password } = req.body;
-
-  const schemaCheck = SignInSchema.safeParse(req.body);
-  if (!schemaCheck.success) {
-    res.status(422).json({ success: false, message: "Invalid input" });
-    return;
-  }
-  const userExists = await prismaClient.user.findFirst({ where: { email } });
-  if (!userExists) {
-    res.status(404).json({ success: false, message: "User not found" });
-    return;
-  }
-  if (userExists.password !== password) {
-    res.status(401).json({ success: false, message: "Invalid password" });
-    return;
-  }
-  const { id } = userExists;
-  const token = jwt.sign({ userId: id }, JWT_SECRET);
-  res
-    .status(200)
-    .cookie("authToken", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 30 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    })
-    .json({
-      success: true,
-      message: "Logged in successfully",
-
-      user: {
-        email: userExists.email,
-        username: userExists.username,
-      },
-    });
 });
 
 app.post("/createRoom", authMiddleware, async (req, res) => {
@@ -183,6 +107,7 @@ app.get("/contents/:slug", async (req, res) => {
 });
 
 app.post("/room/:slug", authMiddleware, async (req, res) => {
+  const JWT_SECRET = process.env.NEXTAUTH_SECRET || "fallback_secret";
   const { slug } = req.params;
   if (!slug) {
     res.status(400).json({ message: "Slug is required", success: false });
@@ -314,6 +239,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
       },
       roomUsers,
     });
+    console.log("Working till now");
     res
       .status(200)
       .cookie("roomToken", token, {
@@ -360,13 +286,11 @@ app.get("/getRooms", authMiddleware, async (req, res) => {
     const formattedRooms = rooms.map((room) => {
       return room.room;
     });
-    res
-      .status(200)
-      .json({
-        rooms: formattedRooms,
-        success: true,
-        message: "Rooms fetched successfully",
-      });
+    res.status(200).json({
+      rooms: formattedRooms,
+      success: true,
+      message: "Rooms fetched successfully",
+    });
   } catch (err) {
     console.log("Error getting all rooms : ", err);
     res.status(500).json({ success: false, message: "Internal server error" });

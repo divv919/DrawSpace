@@ -1,7 +1,6 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { prismaClient } from "@repo/db/client";
-import JWT_SECRET from "@repo/backend-common/config";
 import GithubProvider from "next-auth/providers/github";
 
 // Validate required environment variables
@@ -10,9 +9,9 @@ const googleClientSecret = process.env.GOOGLE_SECRET;
 const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_SECRET;
 const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-
+const nextAuthSecret = process.env.NEXTAUTH_SECRET || "fallback_secret";
 const authOptions: NextAuthOptions = {
-  secret: JWT_SECRET,
+  secret: nextAuthSecret,
   // Set the base URL for OAuth callbacks
   // url: nextAuthUrl,
   // Enable debug mode in development

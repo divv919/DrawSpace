@@ -518,12 +518,6 @@ const CanvasComponent = ({
         return;
       }
 
-      if (isEditingText) {
-        setLastTypingTime(Date.now());
-        setCaretVisible(true);
-        handleTextBoxEditing(e.key);
-        return;
-      }
       if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
         setCurrentShape(shapes[Number(e.key) - 1]);
       }

@@ -1,12 +1,13 @@
 import { WebSocketServer, WebSocket } from "ws";
 import jwt, { decode, JwtPayload } from "jsonwebtoken";
 import "dotenv/config";
-import JWT_SECRET from "@repo/backend-common/config";
+// import JWT_SECRET from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
 import { uuid } from "uuidv4";
 const wss = new WebSocketServer({ port: 8080 });
 import z from "zod";
 import { Role } from "@repo/common/schema";
+
 type Role = "user" | "admin" | "moderator";
 
 interface User {
@@ -151,11 +152,15 @@ const usersBySocket = new Map<string, User>();
 const socketByRoom = new Map<string, Set<string>>();
 const socketByUserId = new Map<string, string>();
 function decodeToken(token: string | null) {
+  console.log("jwt sec is ", process.env.NEXTAUTH_SECRET);
   if (!token) {
     return null;
   }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET || "Fallback_Secret");
+    const decoded = jwt.verify(
+      token,
+      process.env.NEXTAUTH_SECRET || "Fallback_Secret"
+    );
     if (!decoded) {
       console.log(" Not decodable ");
       return null;
@@ -177,6 +182,7 @@ wss.on("connection", async (ws, request) => {
   const cookieMap = new Map<string, string>();
   cookies.split("; ").forEach((cookie) => {
     const [key, value] = cookie.split("=");
+
     cookieMap.set(key ?? "", value ?? "");
   });
   const decodedToken = decodeToken(cookieMap.get("roomToken") ?? null);
