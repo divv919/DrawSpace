@@ -4,16 +4,25 @@ import {
   CreateRoomResponse,
   GetRoomsResponse,
 } from "@/types/rooms";
+import { getSession } from "next-auth/react";
 
 export const fetchJSON = async <T>(
   url: string,
   options: RequestInit
 ): Promise<T> => {
+  const session = await getSession();
+  let header = null;
+  if (session && session.user && session.user.accessToken) {
+    header = session.user.accessToken;
+  }
+
+  console.log("header is ", header);
   const response = await fetch(`${BACKEND_BASE_URL}${url}`, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(header ? { Authorization: `Bearer ${header}` } : {}),
       ...(options?.headers || {}),
     },
   });

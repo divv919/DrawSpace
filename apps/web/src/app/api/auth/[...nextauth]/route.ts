@@ -2,7 +2,7 @@ import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { prismaClient } from "@repo/db";
 import GithubProvider from "next-auth/providers/github";
-
+import * as jwt from "jsonwebtoken";
 // Validate required environment variables
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_SECRET;
@@ -98,7 +98,7 @@ const authOptions: NextAuthOptions = {
             token.userId = newEntry.id;
           }
         }
-        console.log("token in jwt", token);
+        // console.log("token in jwt", token);
         return token;
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -110,10 +110,19 @@ const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       try {
         if (token.userId && token.username && token.email) {
+          const accessToken = jwt.sign(
+            {
+              userId: token.userId,
+              username: token.username,
+              email: token.email,
+            },
+            nextAuthSecret
+          );
           session.user = {
             userId: token.userId,
             username: token.username,
             email: token.email,
+            accessToken,
           };
         }
         return session;
@@ -147,6 +156,7 @@ declare module "next-auth" {
       userId?: string;
       username?: string;
       email?: string;
+      accessToken?: string;
     } & DefaultSession["user"];
   }
 }

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { JwtPayload } from "jsonwebtoken";
-import { getToken } from "next-auth/jwt";
+import jwt from "jsonwebtoken";
 const authMiddleware = async (
   req: Request,
   res: Response,
@@ -8,19 +8,20 @@ const authMiddleware = async (
 ) => {
   try {
     const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || "fallback_secret";
-    console.log("secret length", NEXTAUTH_SECRET.length);
-    console.log("headers : ", req.headers);
-    console.log("cookies: ", req.cookies);
-    const decoded = await getToken({
-      req: {
-        headers: req.headers,
-        cookies: req.cookies,
-      } as any,
-      secret: NEXTAUTH_SECRET,
-    });
-    console.log("decoded", decoded);
+
+    if (!req.headers.authorization) {
+      console.log("No authorization header");
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+    const authHeader = req.headers.authorization.split(" ")[1];
+    if (!authHeader) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+    const decoded = jwt.verify(authHeader, NEXTAUTH_SECRET);
+
     if (decoded) {
-      console.log("decoded", decoded);
       req.userId = (decoded as JwtPayload).userId;
       next();
       return;
