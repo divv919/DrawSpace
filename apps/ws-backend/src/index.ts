@@ -173,20 +173,22 @@ function decodeToken(token: string | null) {
 }
 
 wss.on("connection", async (ws, request) => {
-  const cookies = request.headers.cookie;
-  if (!cookies) {
-    console.log("No cookies found");
+  const token = request.url?.split("?")[1];
+  if (!token) {
+    console.log("No token found");
     ws.close(1008, "Authentication Error");
     return;
   }
-  const cookieMap = new Map<string, string>();
-  cookies.split("; ").forEach((cookie) => {
-    const [key, value] = cookie.split("=");
-
-    cookieMap.set(key ?? "", value ?? "");
-  });
-  const decodedToken = decodeToken(cookieMap.get("roomToken") ?? null);
-
+  console.log("token is ", token);
+  const tokenVal = token.split("=")[1];
+  if (!tokenVal) {
+    console.log("No token found");
+    ws.close(1008, "Authentication Error");
+    return;
+  }
+  console.log("token val is ");
+  const decodedToken = decodeToken(tokenVal);
+  console.log("decoded token is ", decodedToken);
   if (!decodedToken) {
     console.log("No token found");
     ws.close();

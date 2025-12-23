@@ -84,12 +84,14 @@ type CanvasMessage = UpdateMessage | DeleteMessage | CreateMessage;
 type WSMessage = CanvasMessage | RoomControlMessage;
 
 function CanvasComponentForWS({
+  token,
   slug,
   user,
   roomUsers,
   setRoomUsers,
   setIsFullyLoaded,
 }: {
+  token: string | undefined;
   slug: string;
   user: {
     userId: undefined | string;
@@ -267,12 +269,15 @@ function CanvasComponentForWS({
   useEffect(() => {
     console.log({ existingShapes });
   }, [existingShapes]);
+  useEffect(() => {
+    console.log("tken is ", token);
+  }, [token]);
 
   useEffect(() => {
-    if (!messagesLoaded) {
+    if (!messagesLoaded || !token) {
       return;
     }
-    const socket = new WebSocket(`${WEBSOCKET_URL}`);
+    const socket = new WebSocket(`${WEBSOCKET_URL}?token=${token}`);
     socket.onopen = () => {
       setSocketConnection(socket);
     };
@@ -325,7 +330,7 @@ function CanvasComponentForWS({
         socket.close();
       }
     };
-  }, [messagesLoaded]);
+  }, [messagesLoaded, token]);
   useEffect(() => {
     if (socketConnection && messagesLoaded) {
       setIsFullyLoaded(true);

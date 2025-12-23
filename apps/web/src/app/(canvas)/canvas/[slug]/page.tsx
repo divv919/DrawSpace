@@ -25,6 +25,7 @@ const checkOrGetAccess = async (
       access: "user" | "admin" | "moderator" | undefined;
       username: string;
     };
+    token: string;
     success: boolean;
     prompt_password: boolean | undefined;
 
@@ -52,6 +53,7 @@ const CanvasPage = () => {
     username: string | undefined;
   }>({ userId: undefined, access: undefined, username: undefined });
   const [isFullyLoaded, setIsFullyLoaded] = useState(false);
+  const [token, setToken] = useState<string | undefined>(undefined);
 
   const router = useRouter();
   useEffect(() => {
@@ -68,11 +70,7 @@ const CanvasPage = () => {
           const {
             userInfo: { access, userId, username },
           } = response;
-          console.log("user info is ", {
-            userId,
-            access,
-            username,
-          });
+          setToken(response.token);
           setUser({
             userId,
             access,
@@ -177,6 +175,7 @@ const CanvasPage = () => {
           </div>
         )}
         <CanvasComponentForWS
+          token={token}
           setIsFullyLoaded={setIsFullyLoaded}
           setRoomUsers={setRoomUsers}
           roomUsers={roomUsers}

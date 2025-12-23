@@ -249,6 +249,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
           userId: req.userId,
           username,
         },
+        token,
         roomUsers,
       });
   } catch (err) {
