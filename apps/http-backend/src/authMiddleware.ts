@@ -8,6 +8,9 @@ const authMiddleware = async (
 ) => {
   try {
     const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || "fallback_secret";
+    console.log("secret length", NEXTAUTH_SECRET.length);
+    console.log("headers : ", req.headers);
+    console.log("cookies: ", req.cookies);
     const decoded = await getToken({
       req: {
         headers: req.headers,

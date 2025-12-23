@@ -10,6 +10,7 @@ const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_SECRET;
 // const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 const nextAuthSecret = process.env.NEXTAUTH_SECRET || "fallback_secret";
+console.log("nextauth secret length", nextAuthSecret.length);
 const authOptions: NextAuthOptions = {
   secret: nextAuthSecret,
   // Set the base URL for OAuth callbacks
