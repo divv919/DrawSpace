@@ -484,7 +484,7 @@ async function handleUpdate(
   }
   const updateMessageFormat = {
     ...message,
-    userId,
+    userId: content.userId,
     roomId: roomId,
     timestamp: Date.now(),
   };

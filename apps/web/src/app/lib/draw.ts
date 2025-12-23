@@ -1,5 +1,6 @@
 import { Content } from "@/types/canvas";
 import type { Camera } from "./camera";
+import { CANVAS_FONT } from "@/config/variables";
 export class Canvas {
   private ctx: CanvasRenderingContext2D;
 
@@ -9,8 +10,19 @@ export class Canvas {
       throw new Error("Unable to acquire 2D rendering context.");
     }
     this.ctx = context;
+    this.setFont();
   }
 
+  private setFont() {
+    const font = new FontFace(
+      "Handlee",
+      "url(https://fonts.gstatic.com/s/handlee/v20/-F6xfjBsISg9aMakPm3wow.woff2)"
+    );
+    font.load().then((loaded: FontFace) => {
+      document.fonts.add(loaded);
+      this.ctx.font = "24px Handlee";
+    });
+  }
   setStrokeStyle(style: CanvasRenderingContext2D["strokeStyle"]) {
     this.ctx.strokeStyle = style;
   }
@@ -168,7 +180,6 @@ export class Canvas {
       return;
     }
     const context = this.ctx;
-    context.font = "48px serif";
     let textBeforeCaret = "";
     // console.log("text array is", textArray, showCaret);
     if (caretPos === -1) {
@@ -202,7 +213,7 @@ export class Canvas {
     drawBox: boolean = false
   ) {
     const context = this.ctx;
-    context.font = "48px serif";
+
     context.fillStyle = fillStyle;
 
     // Measure text dimensions
@@ -415,7 +426,7 @@ export class Canvas {
     }
     if (shape.type === "text") {
       const context = this.ctx;
-      context.font = "48px serif";
+
       const metrics = context.measureText(shape.text ?? "");
       const textHeight = 48;
 
@@ -490,7 +501,6 @@ export class Canvas {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context?.clearRect(0, 0, window.innerWidth, window.innerHeight);
     context.setTransform(scale, 0, 0, scale, x, y);
-
     let selectedShape: Content | null = null;
     existingShapes.map((shape: Content, index: number) => {
       const renderer = this.shapeRenderer[shape.type];
@@ -623,7 +633,7 @@ export class Canvas {
     tolerance: number = 10
   ) {
     const context = this.ctx;
-    context.font = "48px serif";
+
     const metrics = context.measureText(text);
     const textHeight = 48;
 

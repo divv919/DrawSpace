@@ -14,29 +14,25 @@ export default function DashboardPage() {
           Welcome to{" "}
           <span className="font-dancing-script text-4xl">DrawSpace</span>
         </h1>
-        <p className="text-neutral-400 text-sm lg:text-base leading-6 lg:text-nowrap">
+        <p className="text-neutral-400 text-sm lg:text-base leading-6 lg:text-nowrap leading-[1.3]">
           Choose how you want to create. Collaborate with others in real-time or
           work on your own canvas.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl w-full">
-        {/* Collaborate Card */}
         <Card
           title="Collaborate"
           description="Create or join a room to draw together with your team in real-time.
             Share ideas instantly."
-          // Icon={<UsersIcon className="w-6 h-6 text-neutral-300" />}
           onClick={() => router.push("/dashboard/rooms")}
         />
 
         <Card
           title="Local Canvas"
           description="Work on your own personal canvas. Perfect for quick sketches and solo brainstorming."
-          // Icon={<MonitorIcon className="w-6 h-6 text-neutral-300" />}
           onClick={() => router.push("/local/canvas")}
         />
-        {/* Local Canvas Card */}
       </div>
     </div>
   );

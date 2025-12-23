@@ -19,7 +19,7 @@ model User {
   email        String?    
   provider String
   username     String
-  adminOfRooms Room[]    @relation("RoomAdmin") // Rooms this user admins
+  adminOfRooms Room[]    @relation("RoomAdmin") 
   accesses     Access[]
   content      Content[]
 }
