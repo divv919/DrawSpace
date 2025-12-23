@@ -183,7 +183,6 @@ export function useTextBox({
     }
 
     const ctx = canvas.getContext();
-    ctx.font = "48px serif";
 
     const width = ctx.measureText(textContent).width;
     const height = 48;

@@ -342,6 +342,7 @@ const CanvasComponent = ({
         endY,
         points,
         id: selectedShape.id,
+        userId: selectedShape.userId,
       })
     );
 

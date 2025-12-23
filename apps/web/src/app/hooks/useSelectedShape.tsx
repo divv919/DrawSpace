@@ -102,7 +102,11 @@ export function useSelectedShape({
       erasedShapesIndexes
     );
 
-    const formattedUpdate = { ...updatedShape, operation: "update" };
+    const formattedUpdate = {
+      ...updatedShape,
+      operation: "update",
+      channel: "canvas",
+    };
 
     setExistingShapes(updatedShapes);
     socket.send(JSON.stringify(formattedUpdate));
