@@ -11,6 +11,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@repo/db": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-query": "^5.90.8",
     "@types/axios": "^0.14.4",
@@ -25,11 +26,11 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.4.0",
-    "uuid": "^13.0.0",
-    "@repo/db": "workspace:*"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@prisma/nextjs-monorepo-workaround-plugin": "^7.2.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
