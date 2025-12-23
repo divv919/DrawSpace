@@ -63,11 +63,9 @@ const isValidInputKey = (key: string): boolean => {
 
 export function useTextBoxLocal({
   canvas,
-  existingShapes,
   user,
 }: {
   canvas: Canvas | null;
-  existingShapes: Content[];
   user: {
     userId: string | undefined;
     access: "user" | "admin" | "moderator" | undefined;

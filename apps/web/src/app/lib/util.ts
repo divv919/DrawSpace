@@ -1,7 +1,7 @@
 import { Shape } from "@/types/canvas";
-import clsx from "clsx";
+import clsx, { type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-export function cn(...input: any[]) {
+export function cn(...input: ClassValue[]) {
   return twMerge(clsx(input));
 }
 type FixedHandles =

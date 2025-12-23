@@ -1,25 +1,19 @@
 "use client";
+import { RevealLogo } from "@/app/components/RevealLogo";
 import { Button } from "@/app/components/ui/Button";
 import { useToast } from "@/app/hooks/useToast";
 import { toTitleCase } from "@/app/lib/util";
-import { SigninRequest, SigninResponse } from "@/types/auth";
-import { useMutation } from "@tanstack/react-query";
+
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-export default function Signin() {
-  const [origin, setOrigin] = useState("http://localhost:3000");
+import { Suspense, useEffect, useRef } from "react";
+function Signin() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const errorHandledRef = useRef(false);
   const error = searchParams.get("error");
   const { showToast } = useToast();
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
-  }, []);
   useEffect(() => {
     // Check for OAuth errors in URL
     if (error && !errorHandledRef.current) {
@@ -72,6 +66,19 @@ export default function Signin() {
   );
 }
 
+export default function SuspenceWrappedSignin() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center h-full w-full min-h-screen">
+          <RevealLogo />
+        </div>
+      }
+    >
+      <Signin />
+    </Suspense>
+  );
+}
 const AuthButton = ({ provider }: { provider: "github" | "google" }) => {
   const { showToast } = useToast();
   const { status } = useSession();
@@ -83,6 +90,8 @@ const AuthButton = ({ provider }: { provider: "github" | "google" }) => {
       disabled={status === "loading"}
       onClick={async () => {
         try {
+          const origin =
+            typeof window !== "undefined" ? window.location.origin : "";
           const result = await signIn(provider, {
             callbackUrl: `${origin}/dashboard`,
             redirect: true,
@@ -94,12 +103,20 @@ const AuthButton = ({ provider }: { provider: "github" | "google" }) => {
               type: "error",
             });
           }
-        } catch (error: any) {
-          showToast({
-            message: error?.message || "Failed to initiate sign in",
-            title: "Error",
-            type: "error",
-          });
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            showToast({
+              message: error.message,
+              title: "Error",
+              type: "error",
+            });
+          } else {
+            showToast({
+              message: "Failed to initiate sign in",
+              title: "Error",
+              type: "error",
+            });
+          }
         }
       }}
     >

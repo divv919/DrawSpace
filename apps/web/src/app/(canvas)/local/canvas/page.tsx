@@ -5,7 +5,6 @@ import CanvasSidebar from "@/app/components/CanvasSidebar";
 import { useErasorLocal } from "@/app/hooks/local/UseErasorLocal";
 import { useSelectedShapeLocal } from "@/app/hooks/local/useSelectedShapeLocal";
 import { useTextBoxLocal } from "@/app/hooks/local/useTextBoxLocal";
-import { useToast } from "@/app/hooks/useToast";
 import { Camera, createCamera } from "@/app/lib/camera";
 import createCanvas from "@/app/lib/draw";
 import { getCursor } from "@/app/lib/util";
@@ -46,7 +45,7 @@ const normalizeShape = (shape: Content): Content => {
 };
 
 export default function LocalCanvasPage() {
-  const [user, setUser] = useState<{ userId: "local"; access: "admin" }>({
+  const [user] = useState<{ userId: "local"; access: "admin" }>({
     userId: "local",
     access: "admin",
   });
@@ -62,7 +61,6 @@ export default function LocalCanvasPage() {
     useState<CanvasRenderingContext2D["strokeStyle"]>("white");
   const [currentShape, setCurrentShape] = useState<Content["type"]>("select");
   const [startXY, setStartXY] = useState({ x: 0, y: 0 });
-  const [endXY, setEndXY] = useState({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{
     width: number;
@@ -163,7 +161,7 @@ export default function LocalCanvasPage() {
     finalizeTextShape,
     editingTextIndex,
     setEditingTextIndex,
-  } = useTextBoxLocal({ canvas, existingShapes, user });
+  } = useTextBoxLocal({ canvas, user });
 
   const isColorChangeFromSelection = useRef(false);
 
@@ -176,9 +174,6 @@ export default function LocalCanvasPage() {
   // this acts like a viewport for the user
   const camera = useRef<Camera | null>(null);
   const textEditingStartedFromTouch = useRef(false);
-  // for testing logs - todel
-  const { showToast } = useToast();
-  // todel test
 
   useEffect(() => {
     const hiddenInput = document.getElementById("hidden-input");
@@ -466,10 +461,10 @@ export default function LocalCanvasPage() {
         const updated = existingShapes.filter(
           (_, index) => selectedShapeIndex !== index
         );
-        const formattedUpdate = {
-          ...existingShapes[selectedShapeIndex],
-          operation: "delete",
-        };
+        // const formattedUpdate = {
+        //   ...existingShapes[selectedShapeIndex],
+        //   operation: "delete",
+        // };
         setExistingShapes(updated);
         setSelectedShapeIndex(-1);
         setHandle(undefined);
@@ -727,14 +722,16 @@ export default function LocalCanvasPage() {
         e.clientX,
         e.clientY
       );
-      setEndXY({ x: worldX, y: worldY });
+      // setEndXY({ x: worldX, y: worldY });
       canvas.shapeRenderer[currentShape]({
+        type: currentShape,
         startX: startXY.x,
         startY: startXY.y,
         endX: worldX,
         endY: worldY,
         points: penPoints,
         color: currentColor,
+        userId: user.userId,
       });
       // canvas.redraw(
       //   camera.current,
@@ -840,7 +837,7 @@ export default function LocalCanvasPage() {
       e.clientY
     );
 
-    setEndXY({ x: worldX, y: worldY });
+    // setEndXY({ x: worldX, y: worldY });
     const dx = Math.abs(startXY.x - worldX);
     const dy = Math.abs(startXY.y - worldY);
 
@@ -877,7 +874,7 @@ export default function LocalCanvasPage() {
     );
     setPenPoints([]);
     setStartXY({ x: 0, y: 0 });
-    setEndXY({ x: 0, y: 0 });
+    // setEndXY({ x: 0, y: 0 });
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

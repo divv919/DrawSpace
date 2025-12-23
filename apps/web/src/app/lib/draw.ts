@@ -1,4 +1,4 @@
-import { Content, Shape } from "@/types/canvas";
+import { Content } from "@/types/canvas";
 import type { Camera } from "./camera";
 export class Canvas {
   private ctx: CanvasRenderingContext2D;
@@ -199,9 +199,7 @@ export class Canvas {
     x: number,
     y: number,
     fillStyle: CanvasRenderingContext2D["fillStyle"] = "white",
-    drawBox: boolean = false,
-    showCaret: boolean = false,
-    caretPos: number = -1
+    drawBox: boolean = false
   ) {
     const context = this.ctx;
     context.font = "48px serif";
@@ -269,20 +267,56 @@ export class Canvas {
     context.restore();
   }
 
-  shapeRenderer: Record<string, (drawing: any) => void> = {
+  shapeRenderer: Record<
+    string,
+    (
+      drawing: Content & {
+        drawBox?: boolean;
+        textArray?: string[];
+        showCaret?: boolean;
+        caretPos?: number;
+      }
+    ) => void
+  > = {
     rectangle: (d) =>
-      this.drawRectangle(d.startX, d.startY, d.endX, d.endY, d.color),
+      this.drawRectangle(
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.endX ?? 0,
+        d.endY ?? 0,
+        d.color
+      ),
 
     ellipse: (d) =>
-      this.drawEllipse(d.startX, d.startY, d.endX, d.endY, d.color),
+      this.drawEllipse(
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.endX ?? 0,
+        d.endY ?? 0,
+        d.color
+      ),
 
-    line: (d) => this.drawLine(d.startX, d.startY, d.endX, d.endY, d.color),
+    line: (d) =>
+      this.drawLine(
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.endX ?? 0,
+        d.endY ?? 0,
+        d.color
+      ),
 
-    arrow: (d) => this.drawArrow(d.startX, d.startY, d.endX, d.endY, d.color),
+    arrow: (d) =>
+      this.drawArrow(
+        d.startX ?? 0,
+        d.startY ?? 0,
+        d.endX ?? 0,
+        d.endY ?? 0,
+        d.color
+      ),
 
     pencil: (d) => this.drawPenStroke(d.points ?? [], d.color),
     text: (d) => {
-      const textContent = d.content ?? d.text ?? "";
+      const textContent = d.text ?? "";
       this.drawText(
         textContent,
         d.startX ?? 0,
@@ -464,7 +498,6 @@ export class Canvas {
         console.warn(`No renderer found for shape: ${shape}`);
         return;
       }
-      let updatedShape = shape;
       this.ctx.save();
       if (erasedShapesIndexes.includes(index)) {
         this.ctx.globalAlpha = 0.5;

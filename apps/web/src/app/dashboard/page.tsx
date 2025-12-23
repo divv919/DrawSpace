@@ -1,13 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import {
-  UsersIcon,
-  MonitorIcon,
-  ArrowRightIcon,
-  House,
-  PencilLine,
-} from "lucide-react";
-import { JSX } from "react";
+import { ArrowRightIcon, House, PencilLine } from "lucide-react";
 import { Button } from "../components/ui/Button";
 export default function DashboardPage() {
   const router = useRouter();
@@ -33,14 +26,14 @@ export default function DashboardPage() {
           title="Collaborate"
           description="Create or join a room to draw together with your team in real-time.
             Share ideas instantly."
-          Icon={<UsersIcon className="w-6 h-6 text-neutral-300" />}
+          // Icon={<UsersIcon className="w-6 h-6 text-neutral-300" />}
           onClick={() => router.push("/dashboard/rooms")}
         />
 
         <Card
           title="Local Canvas"
           description="Work on your own personal canvas. Perfect for quick sketches and solo brainstorming."
-          Icon={<MonitorIcon className="w-6 h-6 text-neutral-300" />}
+          // Icon={<MonitorIcon className="w-6 h-6 text-neutral-300" />}
           onClick={() => router.push("/local/canvas")}
         />
         {/* Local Canvas Card */}
@@ -52,12 +45,12 @@ export default function DashboardPage() {
 const Card = ({
   title,
   description,
-  Icon,
+
   onClick,
 }: {
   title: string;
   description: string;
-  Icon: JSX.Element;
+
   onClick: () => void;
 }) => {
   return (

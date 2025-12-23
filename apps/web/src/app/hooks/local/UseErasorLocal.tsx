@@ -3,7 +3,6 @@ import { Content } from "@/types/canvas";
 import type { Canvas } from "../../lib/draw";
 import React, { SetStateAction, useState } from "react";
 import type { Camera } from "../../lib/camera";
-import { useToast } from "../useToast";
 export function useErasorLocal({
   canvas,
   existingShapes,
@@ -16,9 +15,10 @@ export function useErasorLocal({
     access: "user" | "admin" | "moderator" | undefined;
   };
 }) {
+  console.log("user is", user);
   const [isErasing, setIsErasing] = useState(false);
   const [erasedShapesIndexes, setErasedShapesIndexes] = useState<number[]>([]);
-  const { showToast } = useToast();
+  // const { showToast } = useToast();
   const captureErasingShapes = (
     camera: Camera,
     selectedShapeIndex: number,

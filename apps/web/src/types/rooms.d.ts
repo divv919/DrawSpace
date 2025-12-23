@@ -24,3 +24,10 @@ export interface GetRoomsResponse {
   success: boolean;
   message: string;
 }
+export type RoomUser = {
+  username: string;
+  role: "user" | "admin" | "moderator";
+  isBanned: boolean;
+  isOnline: boolean;
+  userId: string;
+};

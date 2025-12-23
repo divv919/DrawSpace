@@ -1,6 +1,3 @@
-import { Button } from "@repo/ui/button";
-import input from "@repo/ui/input";
-
 const AuthComponent = ({ isSignup }: { isSignup: boolean }) => {
   return (
     <div className="w-screen h-screen flex justify-center">

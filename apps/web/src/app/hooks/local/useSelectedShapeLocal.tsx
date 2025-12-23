@@ -118,6 +118,8 @@ export function useSelectedShapeLocal({
       access: "user" | "admin" | "moderator" | undefined;
     }
   ) => {
+    console.log("user is ", user);
+
     const worldDeltaX =
       (e.clientX - lastMousePosition.current.x) / camera.scale;
     const worldDeltaY =
@@ -387,7 +389,7 @@ export function useSelectedShapeLocal({
       selectedShapeIndex,
       erasedShapesIndexes
     );
-    const formattedUpdate = { ...updatedShape, operation: "update" };
+    // const formattedUpdate = { ...updatedShape, operation: "update" };
     setExistingShapes(updatedShapes);
 
     lastMousePosition.current = {

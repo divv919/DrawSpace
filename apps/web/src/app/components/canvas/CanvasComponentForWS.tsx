@@ -5,8 +5,7 @@ import CanvasComponent from "./CanvasComponent";
 import { WEBSOCKET_URL } from "@/config/variables";
 import { Content } from "@/types/canvas";
 import { fetchJSON } from "@/app/lib/rooms";
-import { RevealLogo, RoomUser } from "@/app/(canvas)/canvas/[slug]/page";
-import { OctagonAlert } from "lucide-react";
+import { RevealLogo } from "../RevealLogo";
 import { useRouter } from "next/navigation";
 import Dialog, {
   DialogActions,
@@ -14,8 +13,16 @@ import Dialog, {
   DialogContent,
   DialogTitle,
 } from "@/app/components/ui/Dialog";
+
 import { Button } from "@/app/components/ui/Button";
 
+type RoomUser = {
+  username: string;
+  role: "user" | "admin" | "moderator";
+  isBanned: boolean;
+  isOnline: boolean;
+  userId: string;
+};
 type CreateMessage = Content & {
   channel: "canvas";
   tempId?: string;
@@ -110,7 +117,7 @@ function CanvasComponentForWS({
     }
   ) => {
     const { tempId, operation, ...rest } = message;
-
+    console.log("operation is ", operation);
     setExistingShapes((prev) => {
       // CASE 1: no tempId → normal create
       if (!tempId) {
@@ -141,7 +148,7 @@ function CanvasComponentForWS({
     }
   ) => {
     const { operation, ...rest } = message;
-
+    console.log("operation is ", operation);
     setExistingShapes((prev) => {
       const toChangeIndex = prev.findIndex((val) => val.id === message.id);
       if (toChangeIndex === -1) return [...prev];

@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Crown,
 } from "lucide-react";
-import { RoomUser } from "../(canvas)/canvas/[slug]/page";
 import React, { useEffect, useMemo, useState } from "react";
 import Dialog, {
   DialogActions,
@@ -20,6 +19,7 @@ import Dialog, {
 } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { stringToGradient } from "../lib/util";
+import { RoomUser } from "@/types/rooms";
 
 export default function CanvasInfo({
   socket,

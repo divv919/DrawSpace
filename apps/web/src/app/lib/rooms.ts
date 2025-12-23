@@ -3,7 +3,6 @@ import {
   CreateRoomRequest,
   CreateRoomResponse,
   GetRoomsResponse,
-  Room,
 } from "@/types/rooms";
 
 export const fetchJSON = async <T>(

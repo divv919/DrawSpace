@@ -16,9 +16,6 @@ export class Camera {
     this.scale = scale;
   }
   getCameraBounds(canvasSize: { width: number; height: number }) {
-    const viewWidth = canvasSize.width / this.scale;
-    const viewHeight = canvasSize.height / this.scale;
-
     return {
       minX: -WORLD.maxX * this.scale + canvasSize.width,
       maxX: -WORLD.minX * this.scale,

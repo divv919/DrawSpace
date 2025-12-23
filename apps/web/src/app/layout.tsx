@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Manrope, Dancing_Script } from "next/font/google";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./globals.css";
 import ClientProviders from "./components/ClientProviders";
 
-const queryClient = new QueryClient({});
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

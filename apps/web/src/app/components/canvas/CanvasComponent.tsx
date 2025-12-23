@@ -13,9 +13,9 @@ import { useErasor } from "@/app/hooks/useErasor";
 import { useSelectedShape } from "@/app/hooks/useSelectedShape";
 import { useTextBox } from "@/app/hooks/useTextBox";
 import { v4 } from "uuid";
-import { RoomUser } from "@/app/(canvas)/canvas/[slug]/page";
 import CanvasInfo from "@/app/components/CanvasInfo";
 import { useToast } from "@/app/hooks/useToast";
+import { RoomUser } from "@/types/rooms";
 const shapes: Shape[] = [
   "select",
   "hand",
@@ -48,17 +48,17 @@ const normalizeShape = (shape: Content): Content => {
   return normalized;
 };
 // Helper function to remove null values from an object
-const removeNullValues = <T extends Record<string, any>>(
-  obj: T
-): Partial<T> => {
-  const result: Partial<T> = {};
-  for (const key in obj) {
-    if (obj[key] !== null) {
-      result[key] = obj[key];
-    }
-  }
-  return result;
-};
+// const removeNullValues = <T extends Record<string, any>>(
+//   obj: T
+// ): Partial<T> => {
+//   const result: Partial<T> = {};
+//   for (const key in obj) {
+//     if (obj[key] !== null) {
+//       result[key] = obj[key];
+//     }
+//   }
+//   return result;
+// };
 
 const CanvasComponent = ({
   existingShapes,
@@ -90,7 +90,7 @@ const CanvasComponent = ({
     useState<CanvasRenderingContext2D["strokeStyle"]>("white");
   const [currentShape, setCurrentShape] = useState<Content["type"]>("select");
   const [startXY, setStartXY] = useState({ x: 0, y: 0 });
-  const [endXY, setEndXY] = useState({ x: 0, y: 0 });
+  // const [endXY, setEndXY] = useState({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{
     width: number;
@@ -192,7 +192,7 @@ const CanvasComponent = ({
     finalizeTextShape,
     editingTextIndex,
     setEditingTextIndex,
-  } = useTextBox({ canvas, existingShapes, user });
+  } = useTextBox({ canvas, user });
 
   const MIN_ZOOM = 0.2;
   const MAX_ZOOM = 5;
@@ -715,7 +715,7 @@ const CanvasComponent = ({
         e.clientX,
         e.clientY
       );
-      setEndXY({ x: worldX, y: worldY });
+      // setEndXY({ x: worldX, y: worldY });
       canvas.shapeRenderer[currentShape]({
         startX: startXY.x,
         startY: startXY.y,
@@ -723,6 +723,8 @@ const CanvasComponent = ({
         endY: worldY,
         points: penPoints,
         color: currentColor,
+        type: currentShape,
+        userId: user.userId ?? "",
       });
       // canvas.redraw(
       //   camera.current,
@@ -833,7 +835,7 @@ const CanvasComponent = ({
       e.clientY
     );
 
-    setEndXY({ x: worldX, y: worldY });
+    // setEndXY({ x: worldX, y: worldY });
     const dx = Math.abs(startXY.x - worldX);
     const dy = Math.abs(startXY.y - worldY);
 
@@ -870,7 +872,7 @@ const CanvasComponent = ({
     );
     setPenPoints([]);
     setStartXY({ x: 0, y: 0 });
-    setEndXY({ x: 0, y: 0 });
+    // setEndXY({ x: 0, y: 0 });
     // send to websocket server
     socket.send(
       JSON.stringify({

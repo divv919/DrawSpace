@@ -8,7 +8,7 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_SECRET;
 const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_SECRET;
-const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+// const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 const nextAuthSecret = process.env.NEXTAUTH_SECRET || "fallback_secret";
 const authOptions: NextAuthOptions = {
   secret: nextAuthSecret,
@@ -46,11 +46,6 @@ const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Allow sign in
-
-      return true;
-    },
     async jwt({ token, user, account, profile }) {
       try {
         if (user && account) {
@@ -104,8 +99,11 @@ const authOptions: NextAuthOptions = {
         }
         console.log("token in jwt", token);
         return token;
-      } catch (err: any) {
-        throw new Error(err.message || err || "Something went wrong");
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          throw new Error(err.message);
+        }
+        throw new Error("Something went wrong");
       }
     },
     async session({ session, token }) {
@@ -118,8 +116,11 @@ const authOptions: NextAuthOptions = {
           };
         }
         return session;
-      } catch (err: any) {
-        throw new Error(err.message || err || "Something went wrong");
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          throw new Error(err.message);
+        }
+        throw new Error("Something went wrong");
       }
     },
   },
@@ -128,9 +129,9 @@ const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
 
 // Export auth function for use in API routes
-export const auth = async () => {
-  return await handler.auth();
-};
+// export const auth = async () => {
+//   return await handler.auth();
+// };
 
 declare module "next-auth" {
   interface User {

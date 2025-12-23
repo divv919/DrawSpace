@@ -3,11 +3,11 @@ import { useState } from "react";
 
 import { useRouter } from "next/navigation";
 import { MenuIcon } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 export default function Sidebar() {
   const router = useRouter();
 
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen] = useState(true);
   return (
     <div>
       <div className="w-fit h-fit">
