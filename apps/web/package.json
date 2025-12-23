@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "preinstall": "pnpm --filter=db install",
+    "prebuild": "pnpm --filter=db run build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
