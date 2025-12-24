@@ -3,7 +3,6 @@ import jwt, { decode, JwtPayload } from "jsonwebtoken";
 import "dotenv/config";
 import { prismaClient } from "@repo/db";
 import { uuid } from "uuidv4";
-const PORT = process.env.PORT || 8080;
 import z from "zod";
 import { Role } from "@repo/common";
 import express from "express";
@@ -149,6 +148,8 @@ const ServerMessageSchema = z.discriminatedUnion("channel", [
 const DbContentSchema = CanvasMessageSchema.omit({
   id: true,
 });
+const PORT = process.env.PORT || 8080;
+
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).send("OK");
 });
