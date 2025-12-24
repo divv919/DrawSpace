@@ -9,8 +9,12 @@ import {
   User,
   ShieldCheck,
   Crown,
+  Copy,
+  Check,
+  LogOut,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Dialog, {
   DialogActions,
   DialogBackground,
@@ -20,12 +24,15 @@ import Dialog, {
 import { Button } from "./ui/Button";
 import { stringToGradient } from "../lib/util";
 import { RoomUser } from "@/types/rooms";
+import { useToast } from "../hooks/useToast";
 
 export default function CanvasInfo({
+  roomName,
   socket,
   user,
   roomUsers,
 }: {
+  roomName: string;
   socket: WebSocket;
   roomUsers: RoomUser[];
   user: {
@@ -34,6 +41,8 @@ export default function CanvasInfo({
     username: string | undefined;
   };
 }) {
+  const router = useRouter();
+  const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [toBan, setToBan] = useState<string | null>(null);
   const [toChangeRole, setToChangeRole] = useState<string | null>(null);
@@ -42,8 +51,33 @@ export default function CanvasInfo({
     "user" | "moderator" | null
   >(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const currentUserRole = user.access;
   const isAdmin = currentUserRole === "admin";
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+  const handleCopyInviteLink = async () => {
+    const inviteLink = window.location.href;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setIsCopied(true);
+      showToast({
+        type: "success",
+        title: "Link Copied",
+        message: "Invite link has been copied to clipboard",
+      });
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      showToast({
+        type: "error",
+        title: "Copy Failed",
+        message: "Could not copy link to clipboard",
+      });
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    router.push("/");
+  };
 
   const userDependency = `${user.userId || ""}-${user.access || ""}-${user.username || ""}`;
 
@@ -238,7 +272,27 @@ export default function CanvasInfo({
           </Dialog>
         </DialogBackground>
       )}
-
+      {isLeaveDialogOpen && (
+        <DialogBackground>
+          <Dialog>
+            <DialogTitle>Exit Room</DialogTitle>
+            <DialogContent>Are you sure want to leave the room?</DialogContent>
+            <DialogActions>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsLeaveDialogOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleLeaveRoom}>
+                Confirm
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </DialogBackground>
+      )}
       {/* Toggle Button */}
       <button
         type="button"
@@ -258,13 +312,13 @@ export default function CanvasInfo({
         {/* Decorative Pattern */}
         <div className="absolute top-0 right-0 w-full h-32 bg-[image:repeating-linear-gradient(315deg,_var(--color-neutral-700)_0,_var(--color-neutral-700)_1px,transparent_0,_transparent_50%)] bg-[size:8px_8px] opacity-30 mask-b-from-0% mask-b-to-100%" />
 
-        {/* Header */}
-        <div className="relative z-10 flex items-center justify-between px-3 py-4 lg:px-5 lg:py-4 border-b border-neutral-800/80">
+        {/* Header with Close Button */}
+        <div className="relative z-10 flex items-center justify-between px-3 py-3 lg:px-5 lg:py-3 border-b border-neutral-800/80">
           <div className="flex items-center gap-2">
             <Users size={18} className="text-neutral-400" />
-            <h2 className="text-lg text-neutral-200 font-dancing-script tracking-wide">
-              Room Info
-            </h2>
+            <span className="text-sm font-medium text-neutral-400">
+              Room Panel
+            </span>
           </div>
           <button
             type="button"
@@ -276,8 +330,36 @@ export default function CanvasInfo({
           </button>
         </div>
 
+        {/* Room Info Section */}
+        <div className="relative z-10 px-3 py-4 lg:px-5 lg:py-3 border-b border-neutral-800/80">
+          <p className="text-[10px] lg:text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">
+            Room Name
+          </p>
+          <h2 className="text-lg lg:text-xl font-semibold text-neutral-100 truncate mb-4">
+            {roomName}
+          </h2>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="primary"
+              onClick={handleCopyInviteLink}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              {isCopied ? <Check size={14} /> : <Copy size={14} />}
+              {isCopied ? "Copied!" : "Copy Invite Link"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsLeaveDialogOpen(true)}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <LogOut size={14} />
+              Leave Room
+            </Button>
+          </div>
+        </div>
+
         {/* Current User Section */}
-        <div className="relative z-10 px-3 py-4 lg:px-5 lg:py-5 border-b border-neutral-800/80">
+        <div className="relative z-10 px-3 py-4 lg:px-5 lg:py-3 border-b border-neutral-800/80">
           <p className="text-[10px] lg:text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-3">
             Your Profile
           </p>
@@ -285,7 +367,7 @@ export default function CanvasInfo({
             {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div
-                className="h-10 w-10 lg:w-12 lg:h-12 rounded-full bg-[linear-gradient(135deg,var(--c1),var(--c2))] shadow-lg"
+                className="h-10 w-10 lg:w-10 lg:h-10 rounded-full bg-[linear-gradient(135deg,var(--c1),var(--c2))] shadow-lg"
                 style={
                   {
                     "--c1": color1,
@@ -299,7 +381,7 @@ export default function CanvasInfo({
             <div className="flex-1 min-w-0">
               {currentUser?.username ? (
                 <>
-                  <p className="text-sm lg:text-base font-semibold text-neutral-100 truncate leading-tight">
+                  <p className="text-sm lg:text-sm font-medium text-neutral-100 truncate leading-tight">
                     {currentUser.username}
                   </p>
                   <div className="mt-1.5">
@@ -317,7 +399,7 @@ export default function CanvasInfo({
         </div>
 
         {/* Participants Section */}
-        <div className="flex-1 flex flex-col min-h-0 px-3 py-3 lg:px-5 lg:py-4">
+        <div className="flex-1 flex flex-col min-h-0 px-3 py-3 lg:px-5 lg:py-3">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] lg:text-[11px] font-medium text-neutral-500 uppercase tracking-wider">
               Participants

@@ -61,12 +61,14 @@ const normalizeShape = (shape: Content): Content => {
 // };
 
 const CanvasComponent = ({
+  roomName,
   existingShapes,
   user,
   socket,
   setExistingShapes,
   roomUsers,
 }: {
+  roomName: string;
   user: {
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
@@ -1391,7 +1393,12 @@ const CanvasComponent = ({
         setCurrentColor={setCurrentColor}
         currentColor={currentColor}
       />
-      <CanvasInfo user={user} roomUsers={roomUsers} socket={socket} />
+      <CanvasInfo
+        roomName={roomName}
+        user={user}
+        roomUsers={roomUsers}
+        socket={socket}
+      />
       <input
         id="hidden-input"
         value={hiddenInput}

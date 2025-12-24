@@ -22,7 +22,7 @@ import { cn } from "../lib/util";
 export default function AvailableRooms() {
   const [isCopying, setIsCopying] = useState<string | null>(null);
   const [isEntering, setIsEntering] = useState<string | null>(null);
-  const { data, isLoading, error } = useQuery<GetRoomsResponse, Error>({
+  const { data, isFetching, error } = useQuery<GetRoomsResponse, Error>({
     queryKey: ["rooms"],
     queryFn: getRooms,
     staleTime: 1000 * 60 * 5,
@@ -56,7 +56,7 @@ export default function AvailableRooms() {
     });
   };
 
-  if (isLoading) {
+  if (isFetching) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-neutral-400">
         <LoaderIcon className="w-6 h-6 animate-spin mb-3" />
@@ -151,7 +151,10 @@ export default function AvailableRooms() {
                 <Button
                   onClick={() => setIsEntering(room.slug)}
                   variant="primary"
-                  className="flex items-center border-b-0 text-shadow-none  justify-center gap-1.5 px-3 py-1.5 w-[75px] h-[31px]  text-sm"
+                  className={cn(
+                    "flex items-center border-b-0 text-shadow-none  justify-center gap-1.5 px-3 py-1.5 w-[75px] h-[31px]  text-sm",
+                    isEntering && "cursor-default"
+                  )}
                 >
                   {isEntering === room.slug ? (
                     <span>

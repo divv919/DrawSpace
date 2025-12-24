@@ -1,5 +1,5 @@
 "use client";
-import { LogOutIcon } from "lucide-react";
+import { LogInIcon, LogOutIcon } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import UsernameDashboard from "../components/UsernameDashboard";
 import { useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import Dialog, {
   DialogContent,
   DialogTitle,
 } from "../components/ui/Dialog";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 export default function DashboardLayout({
   children,
@@ -19,7 +19,7 @@ export default function DashboardLayout({
 }) {
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const router = useRouter();
-
+  const session = useSession();
   return (
     <div className="w-screen min-h-screen bg-neutral-950 flex flex-col font-manrope relative">
       {isLogoutDialogOpen && (
@@ -77,17 +77,28 @@ export default function DashboardLayout({
             </span>
           </div>
           <div className="flex items-center gap-4 lg:gap-6">
-            <UsernameDashboard />
-            <Button
-              onClick={() => {
-                setIsLogoutDialogOpen(true);
-              }}
-              variant="secondary"
-              className="text-xs flex items-center gap-1 bg-neutral-700 px-3 py-2 text-neutral-200 hover:text-neutral-100"
-            >
-              <LogOutIcon size={14} className="" />
-              <span className="text-xs ">Logout</span>
-            </Button>
+            <UsernameDashboard session={session} />
+            {session.status === "authenticated" ? (
+              <Button
+                onClick={() => {
+                  setIsLogoutDialogOpen(true);
+                }}
+                variant="secondary"
+                className="text-xs flex items-center gap-1 bg-neutral-700 px-3 py-2 text-neutral-200 hover:text-neutral-100"
+              >
+                <LogOutIcon size={14} className="" />
+                <span className="text-xs ">Logout</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={() => router.push("/signin")}
+                variant="primary"
+                className="text-xs flex items-center gap-1 bg-neutral-700 px-3 py-2 text-neutral-900 hover:text-neutral-800"
+              >
+                <LogInIcon size={14} />
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>

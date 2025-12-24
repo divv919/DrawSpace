@@ -21,7 +21,7 @@ export default function RoomActions() {
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const isFetchingRooms = useIsFetching({ queryKey: ["rooms"] }) > 0;
-
+  const [fetchByButton, setFetchByButton] = useState(false);
   useEffect(() => {
     console.log("Is fetching", isFetchingRooms);
   }, [isFetchingRooms]);
@@ -29,16 +29,18 @@ export default function RoomActions() {
     mutationFn: createRoom,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      setFetchByButton(false);
+      setIsCreateRoomModalOpen(false);
+      setFormData({ name: "", password: "", isProtected: false });
     },
   });
 
   const handleCreateRoom = () => {
     mutation.mutate(formData);
-    setIsCreateRoomModalOpen(false);
-    setFormData({ name: "", password: "", isProtected: false });
   };
 
   const handleRefreshRooms = () => {
+    setFetchByButton(true);
     queryClient.invalidateQueries({ queryKey: ["rooms"] });
   };
 
@@ -50,12 +52,16 @@ export default function RoomActions() {
       <div className="flex items-center gap-2">
         <button
           onClick={handleRefreshRooms}
-          className="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer"
+          className={cn(
+            "p-2 rounded-lg text-neutral-400 ",
+            !isFetchingRooms &&
+              "hover:text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer "
+          )}
           title="Refresh rooms"
         >
           <RefreshCcwIcon
             size={18}
-            className={cn(isFetchingRooms && "animate-spin")}
+            className={cn(isFetchingRooms && fetchByButton && "animate-spin")}
           />
         </button>
         <Button

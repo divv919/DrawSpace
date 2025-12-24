@@ -27,7 +27,7 @@ export const fetchJSON = async <T>(
     },
   });
   if (!response.ok) {
-    throw new Error(response.statusText);
+    new Error(response.statusText);
   }
   return response.json() as Promise<T>;
 };

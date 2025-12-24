@@ -93,7 +93,7 @@ const AuthButton = ({ provider }: { provider: "github" | "google" }) => {
           const origin =
             typeof window !== "undefined" ? window.location.origin : "";
           const result = await signIn(provider, {
-            callbackUrl: `${origin}/dashboard`,
+            callbackUrl: `${origin}/`,
             redirect: true,
           });
           if (result?.error) {

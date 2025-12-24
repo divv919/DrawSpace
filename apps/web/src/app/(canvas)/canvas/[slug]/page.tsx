@@ -12,6 +12,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RevealLogo } from "@/app/components/RevealLogo";
 import { RoomUser } from "@/types/rooms";
+import { cn } from "@/app/lib/util";
+import { Loader2, LoaderIcon } from "lucide-react";
 
 const checkOrGetAccess = async (
   slug: string,
@@ -28,8 +30,9 @@ const checkOrGetAccess = async (
     token: string;
     success: boolean;
     prompt_password: boolean | undefined;
-
+    roomName: string | undefined;
     roomUsers: RoomUser[];
+    message: string;
   }>(`/room/${slug}`, {
     method,
     body: JSON.stringify(body),
@@ -37,6 +40,7 @@ const checkOrGetAccess = async (
     credentials: "include",
     ...options,
   });
+
   return response;
 };
 
@@ -47,6 +51,7 @@ const CanvasPage = () => {
     "promptPassword" | "accessGranted" | "unavailable" | "loading"
   >("loading");
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
+  const [roomName, setRoomName] = useState<string | undefined>(undefined);
   const [user, setUser] = useState<{
     userId: undefined | string;
     access: "user" | "admin" | "moderator" | undefined;
@@ -54,13 +59,17 @@ const CanvasPage = () => {
   }>({ userId: undefined, access: undefined, username: undefined });
   const [isFullyLoaded, setIsFullyLoaded] = useState(false);
   const [token, setToken] = useState<string | undefined>(undefined);
-
+  const [passwordError, setPasswordError] = useState<string | undefined>(
+    undefined
+  );
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   useEffect(() => {
     async function checkAccess() {
       try {
         setPageState("loading");
         const response = await checkOrGetAccess(slug, "POST");
+
         if (response.prompt_password) {
           setPageState("promptPassword");
           return;
@@ -76,7 +85,7 @@ const CanvasPage = () => {
             access,
             username,
           });
-
+          setRoomName(response.roomName);
           setRoomUsers(
             response.roomUsers.map((ru) => {
               return { ...ru, isOnline: false };
@@ -88,8 +97,8 @@ const CanvasPage = () => {
           setPageState("unavailable");
         }
         setPassword("");
-      } catch (err) {
-        console.error("error is ", err);
+      } catch (err: unknown) {
+        setPasswordError(undefined);
         setPageState("unavailable");
       }
     }
@@ -97,28 +106,45 @@ const CanvasPage = () => {
   }, [slug]);
 
   const handleSubmitPassword = async () => {
-    setPageState("loading");
-    const response = await checkOrGetAccess(slug, "POST", { password });
-    setPassword("");
-
-    if (response.success) {
-      if (response.prompt_password) {
-        setPageState("promptPassword");
-      } else {
-        const {
-          userInfo: { access, userId, username },
-        } = response;
-        setUser({ access, userId, username });
-        setRoomUsers(
-          response.roomUsers.map((ru) => {
-            return { ...ru, isOnline: false };
-          })
-        );
-        setPageState("accessGranted");
+    // setPageState("loading");
+    try {
+      if (password.length === 0) {
+        setPasswordError("Password is required");
+        return;
       }
-      console.log("userinfo  ", response.userInfo);
-    } else {
-      setPageState("unavailable");
+      setIsLoading(true);
+      const response = await checkOrGetAccess(slug, "POST", { password });
+      // setPassword("");
+
+      if (response.success) {
+        if (response.prompt_password) {
+          setPageState("promptPassword");
+        } else {
+          const {
+            userInfo: { access, userId, username },
+          } = response;
+          setUser({ access, userId, username });
+          setRoomUsers(
+            response.roomUsers.map((ru) => {
+              return { ...ru, isOnline: false };
+            })
+          );
+          setPageState("accessGranted");
+        }
+        setPasswordError(undefined);
+        console.log("userinfo  ", response.userInfo);
+      } else {
+        if (response.message === "Invalid password") {
+          setPasswordError("Invalid password");
+          return;
+        }
+
+        throw new Error("Server Error");
+      }
+    } catch (err: unknown) {
+      if (err) setPageState("unavailable");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -131,21 +157,38 @@ const CanvasPage = () => {
             Enter the password to join the room.
             <input
               type="password"
-              className="bg-neutral-700 text-white px-3 py-[6px] text-sm rounded-md focus:outline-none w-full"
+              className={cn(
+                "bg-neutral-700 text-white px-3 py-[6px] text-sm rounded-md focus:outline-none w-full",
+                passwordError && "border border-red-500"
+              )}
               placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                if (passwordError) {
+                  setPasswordError(undefined);
+                }
+                setPassword(e.target.value);
+              }}
             />
+            {passwordError && (
+              <div className="text-red-500 text-xs   ">{passwordError}</div>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button
-              variant="secondary"
-              onClick={() => router.push("/dashboard")}
-            >
+            <Button variant="secondary" onClick={() => router.push("/")}>
               Go Back
             </Button>
-            <Button variant="primary" onClick={handleSubmitPassword}>
-              Submit
+            <Button
+              variant="primary"
+              onClick={handleSubmitPassword}
+              disabled={isLoading}
+              className="w-[70px] h-[33px] flex items-center justify-center disabled:cursor-default "
+            >
+              {isLoading ? (
+                <LoaderIcon size={14} className="animate-spin" />
+              ) : (
+                "Submit"
+              )}{" "}
             </Button>
           </DialogActions>
         </Dialog>
@@ -175,6 +218,7 @@ const CanvasPage = () => {
           </div>
         )}
         <CanvasComponentForWS
+          roomName={roomName || ""}
           token={token}
           setIsFullyLoaded={setIsFullyLoaded}
           setRoomUsers={setRoomUsers}

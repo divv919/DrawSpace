@@ -37,6 +37,7 @@ app.post("/createRoom", authMiddleware, async (req, res) => {
 
   const slug = generateSlug(name);
   const adminId = req.userId;
+  console.log("admin id ", adminId);
   if (!adminId) {
     res.status(401).json({ success: false, message: "Token expired" });
     return;
@@ -148,7 +149,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
         }
         if (req.body.password !== room.password) {
           console.log("Invalid password, sending prompt_password");
-          res.status(401).json({
+          res.status(200).json({
             success: false,
             message: "Invalid password",
             prompt_password: true,
@@ -249,6 +250,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
           userId: req.userId,
           username,
         },
+        roomName: room.name,
         token,
         roomUsers,
       });

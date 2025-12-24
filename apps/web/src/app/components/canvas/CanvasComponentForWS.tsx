@@ -84,6 +84,7 @@ type CanvasMessage = UpdateMessage | DeleteMessage | CreateMessage;
 type WSMessage = CanvasMessage | RoomControlMessage;
 
 function CanvasComponentForWS({
+  roomName,
   token,
   slug,
   user,
@@ -91,6 +92,7 @@ function CanvasComponentForWS({
   setRoomUsers,
   setIsFullyLoaded,
 }: {
+  roomName: string;
   token: string | undefined;
   slug: string;
   user: {
@@ -353,10 +355,7 @@ function CanvasComponentForWS({
               You have been disconnected from the server.
             </DialogContent>
             <DialogActions>
-              <Button
-                variant="secondary"
-                onClick={() => router.push("/dashboard")}
-              >
+              <Button variant="secondary" onClick={() => router.push("/")}>
                 Home
               </Button>
               <Button
@@ -370,6 +369,7 @@ function CanvasComponentForWS({
         </DialogBackground>
       )}
       <CanvasComponent
+        roomName={roomName}
         roomUsers={roomUsers}
         user={user}
         existingShapes={existingShapes}
