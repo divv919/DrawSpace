@@ -8,7 +8,7 @@ import z from "zod";
 import { Role } from "@repo/common";
 import express from "express";
 import http from "http";
-
+import type { Request, Response } from "express";
 type Role = "user" | "admin" | "moderator";
 const app = express();
 interface User {
@@ -149,7 +149,7 @@ const ServerMessageSchema = z.discriminatedUnion("channel", [
 const DbContentSchema = CanvasMessageSchema.omit({
   id: true,
 });
-app.get("/health", (_, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.status(200).send("OK");
 });
 
