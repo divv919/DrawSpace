@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { RevealLogo } from "@/app/components/RevealLogo";
 import { RoomUser } from "@/types/rooms";
 import { cn } from "@/app/lib/util";
-import { Loader2, LoaderIcon } from "lucide-react";
+import { LoaderIcon } from "lucide-react";
 
 const checkOrGetAccess = async (
   slug: string,
@@ -100,6 +100,7 @@ const CanvasPage = () => {
       } catch (err: unknown) {
         setPasswordError(undefined);
         setPageState("unavailable");
+        console.log("error is ", err);
       }
     }
     checkAccess();

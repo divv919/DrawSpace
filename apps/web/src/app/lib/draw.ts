@@ -1,6 +1,5 @@
 import { Content } from "@/types/canvas";
 import type { Camera } from "./camera";
-import { CANVAS_FONT } from "@/config/variables";
 export class Canvas {
   private ctx: CanvasRenderingContext2D;
 
@@ -12,7 +11,7 @@ export class Canvas {
     this.ctx = context;
     this.setFont();
   }
-
+  textHeight: number = 24;
   private setFont() {
     const font = new FontFace(
       "Handlee",
@@ -22,6 +21,7 @@ export class Canvas {
       document.fonts.add(loaded);
       this.ctx.font = "24px Handlee";
     });
+    this.textHeight = 24;
   }
   setStrokeStyle(style: CanvasRenderingContext2D["strokeStyle"]) {
     this.ctx.strokeStyle = style;
@@ -192,7 +192,7 @@ export class Canvas {
     // console.log("text before caret", textBeforeCaret);
     const metrics = context.measureText(textBeforeCaret);
     const caretX = x + metrics.width;
-    const textHeight = 48;
+    const textHeight = this.textHeight;
     const textBaseline = metrics.actualBoundingBoxAscent || 0.8 * textHeight;
     const caretTop = y - textBaseline;
     const caretBottom =
@@ -219,7 +219,7 @@ export class Canvas {
     // Measure text dimensions
     const metrics = context.measureText(text);
     const textWidth = metrics.width;
-    const textHeight = 48; // Font size
+    const textHeight = this.textHeight; // Font size
     const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8; // Approximate baseline
 
     // Draw bounding box if requested
@@ -428,7 +428,7 @@ export class Canvas {
       const context = this.ctx;
 
       const metrics = context.measureText(shape.text ?? "");
-      const textHeight = 48;
+      const textHeight = this.textHeight;
 
       const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8;
       minY -= textBaseline + 5;
@@ -635,7 +635,7 @@ export class Canvas {
     const context = this.ctx;
 
     const metrics = context.measureText(text);
-    const textHeight = 48;
+    const textHeight = this.textHeight;
 
     const textBaseline = metrics.actualBoundingBoxAscent || textHeight * 0.8;
     const startY = startYWithBaseline - textBaseline;
