@@ -4,12 +4,13 @@ import "dotenv/config";
 import { prismaClient } from "@repo/db";
 import { uuid } from "uuidv4";
 const PORT = process.env.PORT || 8080;
-const wss = new WebSocketServer({ port: Number(PORT) });
 import z from "zod";
 import { Role } from "@repo/common";
+import express from "express";
+import http from "http";
 
 type Role = "user" | "admin" | "moderator";
-
+const app = express();
 interface User {
   userId: string;
   ws: WebSocket;
@@ -148,6 +149,15 @@ const ServerMessageSchema = z.discriminatedUnion("channel", [
 const DbContentSchema = CanvasMessageSchema.omit({
   id: true,
 });
+app.get("/health", (_, res) => {
+  res.status(200).send("OK");
+});
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+server.listen(PORT, () =>
+  console.log("Websocket server listening at port ", PORT)
+);
 const usersBySocket = new Map<string, User>();
 const socketByRoom = new Map<string, Set<string>>();
 const socketByUserId = new Map<string, string>();
@@ -546,7 +556,6 @@ async function handleDelete(
 
   sendMessageToRoom(roomId, serverDeleteMsg, userId);
 }
-console.log("websocket server listening at 8080 port ");
 
 const checkUserPermission = async (
   socketId: string,

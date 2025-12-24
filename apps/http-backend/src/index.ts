@@ -24,7 +24,9 @@ app.use((req, _, next) => {
   console.log("Body is : ", req.body);
   next();
 });
-
+app.get("/health", (_, res) => {
+  res.status(200).send("OK");
+});
 app.post("/createRoom", authMiddleware, async (req, res) => {
   const schemaCheck = CreateRoomSchema.safeParse(req.body);
   console.log("is Schema correct : ", schemaCheck.success);
