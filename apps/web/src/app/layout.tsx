@@ -23,6 +23,25 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DrawSpace",
   description: "A shared space to think visually.",
+  openGraph: {
+    type: "website",
+    title: "DrawSpace",
+    description: "A shared space to think visually.",
+    url: "https://drawspace.divyanshh.tech",
+    siteName: "DrawSpace",
+    images: [
+      {
+        url: "/preview.png",
+        alt: "Preview Image",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DrawSpace",
+    description: "A shared space to think visually.",
+    images: ["/preview.png"],
+  },
 };
 
 export default function RootLayout({
