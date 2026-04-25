@@ -28,7 +28,7 @@ jobs:
       - name: "Detect change"
         id: set
         run: |
-          pnpm exec turbo run build --filter=...[origin/main]  --dry=json > diff.json 
+          pnpm exec turbo run build --affected --dry=json > diff.json 
           echo "http-backend=$(grep -q "http-backend" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "web=$(grep -q "web" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "ws-backend=$(grep -q "ws-backend" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
