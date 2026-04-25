@@ -92,7 +92,7 @@ jobs:
               docker pull divv919/excalidraw-http-backend:${{ github.sha }}
               docker stop excalidraw-http-backend || true
               docker rm excalidraw-http-backend || true
-              docker run -p 3001:3001 -e NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
+              docker run -d -p 3001:3001 -e NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
               -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
               -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
               -e PORT=3001 \
@@ -104,7 +104,7 @@ jobs:
               docker pull divv919/excalidraw-ws-backend:${{ github.sha }}
               docker stop excalidraw-ws-backend || true
               docker rm excalidraw-ws-backend || true
-              docker run -p 8080:8080 \
+              docker run -d -p 8080:8080 \
               -e NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
               -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
               -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
@@ -117,7 +117,7 @@ jobs:
              docker pull divv919/excalidraw-web:${{ github.sha }}
              docker stop excalidraw-web || true
              docker rm excalidraw-web || true
-             docker run -p 3000:3000 \
+             docker run -d -p 3000:3000 \
              -e NEXT_PUBLIC_HTTP_URL=${{ secrets.NEXT_PUBLIC_HTTP_URL }} \
              -e NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }} \
              -e GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
