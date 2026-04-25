@@ -39,7 +39,7 @@ COPY --from=builder --chown=ws:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.
 
 
 # Not installing again as we can just copy the installed node_modules form builder
-# RUN corepack enable
+RUN corepack enable
 # RUN pnpm install --frozen-lockfile
 
 COPY --from=builder --chown=ws:nodejs /app/node_modules ./node_modules
