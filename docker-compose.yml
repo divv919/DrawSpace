@@ -1,0 +1,51 @@
+services:
+  web:
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    build:
+      context: .
+      dockerfile: apps/web/.Dockerfile
+      args:
+        NEXT_PUBLIC_HTTP_URL: http://127.0.0.1:3001
+        NEXT_PUBLIC_WS_URL: ws://127.0.0.1:8080
+    ports:
+      - "3000:3000"
+    env_file:
+      - apps/web/.env.local
+  postgres:
+    image: postgres
+    container_name: some-postgres
+    networks:
+      - app-network
+    ports:
+      - "5431:5432"
+    shm_size: 128mb
+    environment:
+      POSTGRES_PASSWORD: 2322004
+
+  http-backend:
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    build: apps/http-backend
+    ports:
+      - "3001:3001"
+    env_file:
+      - apps/http-backend/.env
+  ws-backend:
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    build: apps/ws-backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - apps/ws-backend/.env
+
+networks:
+  app-network:
+    driver: bridge

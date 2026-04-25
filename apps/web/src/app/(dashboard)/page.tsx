@@ -36,7 +36,6 @@ export default function DashboardPage() {
             }
           }}
         />
-
         <Card
           title="Local Canvas"
           description="Work on your own personal canvas. Perfect for quick sketches and solo brainstorming."

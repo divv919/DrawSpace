@@ -9,7 +9,7 @@ import { generateSlug } from "./lib/util.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { slugToRoom } from "./lib/db.helpers.js";
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT ? Number(process.env.PORT) || 3002 : 3002;
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -17,7 +17,7 @@ app.use(
     credentials: true,
 
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  })
+  }),
 );
 
 app.use((req, _, next) => {
@@ -201,7 +201,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
 
     const token = jwt.sign(
       { userId: req.userId, roomId: room.id, access: access },
-      JWT_SECRET
+      JWT_SECRET,
     );
 
     const peopleInRoom = await prismaClient.access.findMany({
@@ -262,6 +262,7 @@ app.post("/room/:slug", authMiddleware, async (req, res) => {
     return;
   }
 });
+
 app.get("/getRooms", authMiddleware, async (req, res) => {
   try {
     const rooms = await prismaClient.access.findMany({
@@ -331,4 +332,6 @@ app.post("/changeRoomPassword", authMiddleware, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log("Http server listening at port " + PORT));
+app.listen(PORT, "::", () =>
+  console.log("Http server listening at port " + PORT),
+);

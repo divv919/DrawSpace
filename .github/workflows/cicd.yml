@@ -1,0 +1,28 @@
+name: Turborepo CICD
+on:
+  push:
+    branches: [main]
+
+jobs:
+  get-diff:
+    runs-on: ubuntu-latest
+    outputs:
+      express: ${{ steps.set.outputs.express }}
+      ws-backend: ${{ steps.set.outputs.ws-backend }}
+      http-backend: ${{ steps.set.outputs.http-backend }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup local pnpm
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: "Enable corepack"
+        run: corepack enable
+
+      - name: "Install dependencies"
+        run: pnpm install --frozen-lockfile
+
+  name: Build and push image
