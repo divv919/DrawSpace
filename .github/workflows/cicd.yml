@@ -12,7 +12,8 @@ jobs:
       http-backend: ${{ steps.set.outputs.http-backend }}
     steps:
       - uses: actions/checkout@v6
-
+        with:
+          fetch-depth: 0
       - name: Setup local npm
         uses: actions/setup-node@v6
         with:
