@@ -98,6 +98,7 @@ jobs:
               -e PORT=3001 \
               --name=excalidraw-http-backend \
               divv919/excalidraw-http-backend:${{ github.sha }}
+            fi
 
             if [ "${{ needs.get-diff.outputs.ws-backend }}"  == "true" ]; then
               docker pull divv919/excalidraw-ws-backend:${{ github.sha }}
@@ -110,6 +111,7 @@ jobs:
               -e PORT=8080 \
               --name=excalidraw-ws-backend \
               divv919/excalidraw-ws-backend:${{ github.sha }}
+            fi
 
             if [ "${{ needs.get-diff.outputs.web }}" == "true" ]; then
              docker pull divv919/excalidraw-web:${{ github.sha }}
@@ -127,3 +129,4 @@ jobs:
              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
              --name=excalidraw-web \
              divv919/excalidraw-web:${{ github.sha }}
+            fi
