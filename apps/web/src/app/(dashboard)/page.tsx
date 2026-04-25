@@ -49,7 +49,6 @@ export default function DashboardPage() {
 const Card = ({
   title,
   description,
-
   onClick,
 }: {
   title: string;
