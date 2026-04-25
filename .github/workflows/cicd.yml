@@ -32,7 +32,10 @@ jobs:
           echo "http-backend=$(grep -q "http-backend" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "web=$(grep -q "web" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "ws-backend=$(grep -q "ws-backend" diff.json && echo true || echo false)" >> $GITHUB_OUTPUT
-
+          cat diff.json
+          grep -q "web" diff.json && echo "FOUND" || echo "NOT FOUND"
+          grep -q "http-backend" diff.json && echo "FOUND" || echo "NOT FOUND"
+          grep -q "ws-backend" diff.json && echo "FOUND" || echo "NOT FOUND"
   build:
     name: Build and push image
     needs: get-diff
